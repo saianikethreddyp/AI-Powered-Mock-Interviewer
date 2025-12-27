@@ -11,12 +11,7 @@ import { AIAvatar } from '@/components/AIAvatar';
 import { VoiceVisualizer } from '@/components/VoiceVisualizer';
 import { Interview } from '@/types';
 import {
-    Mic,
-    MicOff,
     PhoneOff,
-    Volume2,
-    VolumeX,
-    MessageSquare,
     AlertCircle,
     Phone,
     ArrowLeft
@@ -34,7 +29,6 @@ export default function InterviewPage({ params }: { params: Promise<{ id: string
     const [interviewState, setInterviewState] = useState<InterviewState>('idle');
     const [isAnalyzing, setIsAnalyzing] = useState(false);
     const [pageError, setPageError] = useState('');
-    const [isMuted, setIsMuted] = useState(false);
     const isCompletingRef = useRef(false);
 
 
@@ -134,6 +128,11 @@ export default function InterviewPage({ params }: { params: Promise<{ id: string
         setPageError('');
 
         try {
+            // Get the candidate's actual name from user metadata
+            const candidateName = user?.user_metadata?.full_name ||
+                user?.email?.split('@')[0] ||
+                'there';
+
             // Create a web call via our API
             const response = await fetch('/api/retell/create-web-call', {
                 method: 'POST',
@@ -142,7 +141,7 @@ export default function InterviewPage({ params }: { params: Promise<{ id: string
                     interviewId: interview.id,
                     jobRole: interview.job_role,
                     jobDescription: interview.job_description,
-                    candidateName: 'Candidate',
+                    candidateName: candidateName,
                 }),
             });
 
@@ -173,22 +172,23 @@ export default function InterviewPage({ params }: { params: Promise<{ id: string
     };
 
     // End the interview manually
-    // End the interview manually
     const handleEndInterview = async () => {
+        // Prevent double completion
+        if (isCompletingRef.current) {
+            console.log('Already completing interview, ignoring duplicate end request');
+            return;
+        }
+
         try {
+            // End the call - the onCallEnded event will trigger completeInterview
             endCall();
-            // Manually trigger completion to ensure it happens even if event doesn't fire
-            completeInterview(transcript);
         } catch (err) {
             console.error('Error ending call:', err);
-            // Fallback
-            completeInterview(transcript);
+            // Only call completeInterview as fallback if endCall failed
+            if (!isCompletingRef.current) {
+                completeInterview(transcript);
+            }
         }
-    };
-
-    // Toggle mute (not directly supported by Retell, but we can show UI state)
-    const toggleMute = () => {
-        setIsMuted(!isMuted);
     };
 
     // Get status text
@@ -281,12 +281,6 @@ export default function InterviewPage({ params }: { params: Promise<{ id: string
 
                 {isCallActive && (
                     <div className="flex items-center gap-3">
-                        <button
-                            onClick={toggleMute}
-                            className={`p-3 rounded-xl border transition-all ${isMuted ? 'bg-red-500/10 border-red-500/30 text-red-400' : 'bg-white/5 border-white/10 text-slate-400 hover:text-white hover:bg-white/10'}`}
-                        >
-                            {isMuted ? <VolumeX size={20} /> : <Volume2 size={20} />}
-                        </button>
                         <button
                             onClick={handleEndInterview}
                             className="flex items-center gap-2 px-4 py-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 font-semibold hover:bg-red-500/20 hover:border-red-500/30 transition-all shadow-[0_0_20px_rgba(239,68,68,0.1)]"

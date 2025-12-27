@@ -65,6 +65,7 @@ export default function InterviewSetupPage() {
                     job_role: jobRole,
                     job_description: jobDescription,
                     resume_text: resumeText,
+                    question_count: questionCount,
                     status: 'setup',
                 })
                 .select()
@@ -184,8 +185,8 @@ export default function InterviewSetupPage() {
                                         key={count}
                                         type="button"
                                         className={`py-2 px-4 rounded-lg font-medium transition-all ${questionCount === count
-                                                ? 'bg-primary text-white shadow-lg shadow-primary/20'
-                                                : 'bg-white/5 text-slate-400 hover:bg-white/10 hover:text-white'
+                                            ? 'bg-primary text-white shadow-lg shadow-primary/20'
+                                            : 'bg-white/5 text-slate-400 hover:bg-white/10 hover:text-white'
                                             }`}
                                         onClick={() => setQuestionCount(count)}
                                     >

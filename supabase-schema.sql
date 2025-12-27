@@ -16,6 +16,7 @@ create table public.interviews (
   job_role text not null,
   job_description text,
   resume_text text,
+  question_count integer default 8,
   status text default 'setup' check (status in ('setup', 'in_progress', 'completed', 'cancelled')),
   started_at timestamp with time zone,
   completed_at timestamp with time zone,

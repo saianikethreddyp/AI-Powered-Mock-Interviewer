@@ -43,42 +43,63 @@ export function useRetellWebCall(options: UseRetellWebCallOptions = {}): UseRete
 
     const transcriptRef = useRef<TranscriptItem[]>([]);
     const retellClientRef = useRef<RetellWebClient | null>(null);
+    const hasEndedRef = useRef(false);
 
-    // Initialize the Retell client
+    // Store callbacks in refs so they can be accessed in event handlers
+    const callbacksRef = useRef({
+        onCallStarted,
+        onCallEnded,
+        onAgentStartTalking,
+        onAgentStopTalking,
+        onError,
+    });
+
+    // Update callback refs when props change
     useEffect(() => {
-        retellClientRef.current = new RetellWebClient();
-        const client = retellClientRef.current;
+        callbacksRef.current = {
+            onCallStarted,
+            onCallEnded,
+            onAgentStartTalking,
+            onAgentStopTalking,
+            onError,
+        };
+    }, [onCallStarted, onCallEnded, onAgentStartTalking, onAgentStopTalking, onError]);
 
-        // Set up event listeners
+    // Setup event handlers for a client
+    const setupClientEventHandlers = useCallback((client: RetellWebClient) => {
         client.on('call_started', () => {
             console.log('Retell call started');
+            hasEndedRef.current = false;
             setIsCallActive(true);
             setIsConnecting(false);
             setError(null);
-            onCallStarted?.();
+            callbacksRef.current.onCallStarted?.();
         });
 
         client.on('call_ended', () => {
-            console.log('Retell call ended');
-            setIsCallActive(false);
-            setIsAgentSpeaking(false);
-            setIsConnecting(false);
-            onCallEnded?.(transcriptRef.current);
+            console.log('Retell call ended event received');
+            if (!hasEndedRef.current) {
+                hasEndedRef.current = true;
+                setIsCallActive(false);
+                setIsAgentSpeaking(false);
+                setIsConnecting(false);
+                // Call the callback with current transcript
+                callbacksRef.current.onCallEnded?.(transcriptRef.current);
+            }
         });
 
         client.on('agent_start_talking', () => {
             setIsAgentSpeaking(true);
-            onAgentStartTalking?.();
+            callbacksRef.current.onAgentStartTalking?.();
         });
 
         client.on('agent_stop_talking', () => {
             setIsAgentSpeaking(false);
-            onAgentStopTalking?.();
+            callbacksRef.current.onAgentStopTalking?.();
         });
 
         client.on('update', (update: { transcript?: Array<{ role: string; content: string }> }) => {
             if (update.transcript) {
-                // Convert transcript to our format
                 const formattedTranscript: TranscriptItem[] = update.transcript.map(item => ({
                     role: item.role === 'agent' ? 'agent' : 'user',
                     content: item.content,
@@ -92,35 +113,51 @@ export function useRetellWebCall(options: UseRetellWebCallOptions = {}): UseRete
             console.error('Retell error:', err);
             setError(err.message || 'An error occurred during the call');
             setIsConnecting(false);
-            onError?.(err);
+            callbacksRef.current.onError?.(err);
         });
+    }, []);
+
+    // Initialize the Retell client once on mount
+    useEffect(() => {
+        const client = new RetellWebClient();
+        retellClientRef.current = client;
+        setupClientEventHandlers(client);
 
         // Cleanup on unmount
         return () => {
             if (retellClientRef.current) {
                 try {
                     retellClientRef.current.stopCall();
-                    // Explicitly cleanup any audio elements if exposed by the SDK, 
-                    // though stopCall() should handle it.
                 } catch (e) {
                     // Ignore errors during cleanup
                 }
             }
         };
-    }, [onCallStarted, onCallEnded, onAgentStartTalking, onAgentStopTalking, onError]);
+    }, [setupClientEventHandlers]);
 
     const startCall = useCallback(async (accessToken: string) => {
-        if (!retellClientRef.current) {
-            setError('Retell client not initialized');
-            return;
-        }
-
+        // Reset state
+        hasEndedRef.current = false;
         setIsConnecting(true);
         setError(null);
         setTranscript([]);
+        transcriptRef.current = [];
+
+        // Create fresh client for each call to avoid stale state
+        if (retellClientRef.current) {
+            try {
+                retellClientRef.current.stopCall();
+            } catch (e) {
+                // Ignore
+            }
+        }
+
+        const client = new RetellWebClient();
+        retellClientRef.current = client;
+        setupClientEventHandlers(client);
 
         try {
-            await retellClientRef.current.startCall({
+            await client.startCall({
                 accessToken,
                 sampleRate: 24000,
             });
@@ -130,15 +167,48 @@ export function useRetellWebCall(options: UseRetellWebCallOptions = {}): UseRete
             setIsConnecting(false);
             throw err;
         }
-    }, []);
+    }, [setupClientEventHandlers]);
 
     const endCall = useCallback(() => {
+        console.log('Manually ending Retell call...');
+
         if (retellClientRef.current) {
-            retellClientRef.current.stopCall();
+            try {
+                // stopCall() should trigger the 'call_ended' event
+                retellClientRef.current.stopCall();
+            } catch (e) {
+                console.error('Error stopping Retell call:', e);
+            }
         }
-        setIsCallActive(false);
-        setIsAgentSpeaking(false);
-        setIsConnecting(false);
+
+        // Fallback: if call_ended event doesn't fire within 500ms, force completion
+        setTimeout(() => {
+            if (!hasEndedRef.current) {
+                console.log('call_ended event did not fire, forcing completion...');
+                hasEndedRef.current = true;
+                setIsCallActive(false);
+                setIsAgentSpeaking(false);
+                setIsConnecting(false);
+                callbacksRef.current.onCallEnded?.(transcriptRef.current);
+            }
+        }, 500);
+    }, []);
+
+    // Cleanup on page unload
+    useEffect(() => {
+        const handleBeforeUnload = () => {
+            if (retellClientRef.current) {
+                try {
+                    retellClientRef.current.stopCall();
+                } catch (e) {
+                    // Ignore
+                }
+            }
+        };
+        window.addEventListener('beforeunload', handleBeforeUnload);
+        return () => {
+            window.removeEventListener('beforeunload', handleBeforeUnload);
+        };
     }, []);
 
     return {

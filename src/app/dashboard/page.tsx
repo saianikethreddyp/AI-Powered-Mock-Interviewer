@@ -28,6 +28,7 @@ export default function DashboardPage() {
     const router = useRouter();
     const [interviews, setInterviews] = useState<Interview[]>([]);
     const [loadingInterviews, setLoadingInterviews] = useState(true);
+    const [averageScore, setAverageScore] = useState<number>(0);
 
     useEffect(() => {
         if (!loading && !user) {
@@ -55,6 +56,34 @@ export default function DashboardPage() {
         if (user) fetchInterviews();
     }, [user]);
 
+    // Fetch actual average scores from completed interviews
+    useEffect(() => {
+        const fetchAverageScore = async () => {
+            if (!user || interviews.length === 0) return;
+
+            const completedIds = interviews
+                .filter(i => i.status === 'completed')
+                .map(i => i.id);
+
+            if (completedIds.length === 0) return;
+
+            try {
+                const { data, error } = await supabase
+                    .from('analysis')
+                    .select('overall_score')
+                    .in('interview_id', completedIds);
+
+                if (!error && data && data.length > 0) {
+                    const totalScore = data.reduce((sum, a) => sum + (a.overall_score || 0), 0);
+                    setAverageScore(Math.round(totalScore / data.length));
+                }
+            } catch (err) {
+                console.error('Error fetching average score:', err);
+            }
+        };
+        fetchAverageScore();
+    }, [user, interviews]);
+
     const handleSignOut = async () => {
         await signOut();
         router.push('/');
@@ -71,7 +100,6 @@ export default function DashboardPage() {
     if (!user) return null;
 
     const completedInterviews = interviews.filter(i => i.status === 'completed');
-    const averageScore = completedInterviews.length > 0 ? 78 : 0; // Placeholder
 
     const stats = [
         { icon: <Target size={24} />, label: 'Total Interviews', value: interviews.length, color: 'text-indigo-400', bg: 'bg-indigo-500/10' },

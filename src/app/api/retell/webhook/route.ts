@@ -17,14 +17,21 @@ export async function POST(request: NextRequest) {
         const rawBody = await request.text();
         const signature = request.headers.get('x-retell-signature') || '';
 
-        // Optionally verify the signature (recommended for production)
+        // Verify the signature (required for production security)
         const apiKey = process.env.RETELL_API_KEY || '';
-        if (apiKey && signature) {
+        const skipValidation = process.env.SKIP_WEBHOOK_VALIDATION === 'true';
+
+        if (!skipValidation && apiKey && signature) {
             const isValid = verifyRetellSignature(rawBody, apiKey, signature);
             if (!isValid) {
-                console.warn('Invalid Retell webhook signature');
-                // Continue anyway for development, but log warning
+                console.error('Invalid Retell webhook signature - rejecting request');
+                return NextResponse.json(
+                    { error: 'Invalid webhook signature' },
+                    { status: 403 }
+                );
             }
+        } else if (!skipValidation && (!apiKey || !signature)) {
+            console.warn('Missing API key or signature for webhook verification');
         }
 
         const event = JSON.parse(rawBody);

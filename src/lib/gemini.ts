@@ -65,11 +65,19 @@ export const generateInterviewQuestions = async (
     resumeText: string,
     questionCount: number = 8
 ): Promise<string[]> => {
-    const systemPrompt = `You are a warm, experienced interviewer named Sarah. You've been conducting interviews for 15 years and genuinely care about helping candidates succeed. Your style is:
+    const systemPrompt = `You are Sarah, a friendly AI practice interviewer for mock interviews.
+
+Your style is:
 - Conversational and friendly, never robotic
 - You use natural language like "I'd love to hear about..." or "Tell me more about..."
-- You occasionally add brief personal touches like "That's actually a great question to think about..."
-- You never sound scripted or corporate`;
+- You occasionally add brief personal touches
+- You never sound scripted or corporate
+
+IMPORTANT BOUNDARIES:
+- You are an AI practice interviewer, NOT a real recruiter at any company
+- If asked "who are you" or "what company do you work for", clarify: "I'm Sarah, your AI practice interviewer helping you prepare for real interviews."
+- Never invent company details, policies, or pretend to work at a specific company
+- Stay focused on helping the candidate practice their interview skills`;
 
     const userMessage = `Create ${questionCount} interview questions for a ${jobRole} position.
 
@@ -115,27 +123,46 @@ export const generateFollowUpQuestion = async (
         .map(item => `Interviewer: ${item.question}\nCandidate: ${item.response}`)
         .join('\n\n');
 
-    const systemPrompt = `You are Sarah, a warm and experienced interviewer having a genuine conversation. You:
+    const systemPrompt = `You are Sarah, a friendly AI practice interviewer having a genuine conversation.
+
+Your style:
 - React authentically to what candidates say (show genuine interest, surprise, curiosity)
-- Use natural verbal habits: "Oh interesting!", "I see", "That makes sense", "Hmm, that's a good point"
-- Sometimes share brief relatable thoughts: "I can imagine that was challenging" or "We had a similar situation here actually"
+- Use natural verbal habits: "Oh interesting!", "I see", "That makes sense"
 - Transition smoothly between topics
 - NEVER sound like you're reading from a script
-- Keep responses concise (2-4 sentences max)`;
+- Keep responses concise (2-4 sentences max)
+
+IMPORTANT BOUNDARIES:
+- You are an AI practice interviewer, NOT a real recruiter
+- If asked about "your company" or "your role", clarify you're an AI helping them practice
+- Never invent company details or pretend to work somewhere`;
+
+    // Detect if response is too short or uncertain
+    const wordCount = userResponse.trim().split(/\s+/).length;
+    const isShortResponse = wordCount < 10;
+    const isUncertain = /i don't know|not sure|no experience|i haven't/i.test(userResponse);
+
+    let extraGuidance = '';
+    if (isShortResponse || isUncertain) {
+        extraGuidance = `\n\nNote: The candidate gave a brief or uncertain response. Gently encourage them to elaborate or offer to rephrase the question if helpful.`;
+    }
 
     const userMessage = `Recent conversation:
 ${recentHistory || 'Just started'}
 
 You just asked: "${originalQuestion}"
-They replied: "${userResponse}"
+They replied: "${userResponse}"${extraGuidance}
 
-${nextQuestion ? `NEXT QUESTION TO ASK: "${nextQuestion}"` : 'This was the final question - wrap up warmly.'}
+${nextQuestion
+            ? `Now smoothly transition and ask this next question: "${nextQuestion}"
+DO NOT say "Here's my next question" or anything similar - just naturally weave it into your response.`
+            : 'This was the final question - wrap up warmly and thank them for the practice session.'}
 
 Respond naturally as Sarah would:
 1. React genuinely to their answer (be specific about what they said - don't be generic!)
-2. ${nextQuestion ? `Smoothly transition and ask: "${nextQuestion}"` : 'Thank them warmly and let them know the interview is complete.'}
+2. ${nextQuestion ? 'Smoothly transition to the next question' : 'Thank them warmly and let them know the practice interview is complete.'}
 
-Sound like a real person having a conversation, not an AI. Use contractions (I'm, that's, you've). Be warm but professional.`;
+Use contractions (I'm, that's, you've). Be warm but professional.`;
 
     try {
         const response = await callGeminiAPI(systemPrompt, userMessage, 0.85);
@@ -156,6 +183,24 @@ export const generateInterviewAnalysis = async (
     jobDescription: string,
     responses: Array<{ question: string; userResponse: string }>
 ) => {
+    console.log('generateInterviewAnalysis called with', {
+        jobRole,
+        responsesCount: responses.length,
+        firstResponse: responses[0]
+    });
+
+    // Handle case where there are no Q&A pairs
+    if (!responses || responses.length === 0) {
+        console.warn('No Q&A pairs provided to analysis - returning fallback');
+        return {
+            ...getFallbackAnalysis(0),
+            detailedFeedback: "We couldn't capture enough of your interview responses to provide detailed feedback. This may have happened if the interview ended too quickly or there was a connection issue. Please try another practice interview.",
+            strengths: ["You took the initiative to practice interviewing"],
+            areasForImprovement: ["Complete more questions for a full analysis"],
+            interviewTips: ["Speak clearly into the microphone", "Take your time to give complete answers", "Practice a full interview session"]
+        };
+    }
+
     const responsesText = responses
         .map((r, i) => `Q${i + 1}: ${r.question}\nAnswer: ${r.userResponse}`)
         .join('\n\n---\n\n');
@@ -175,7 +220,12 @@ ${responsesText}
 
 Provide detailed analysis as JSON only:
 {
-  "overallScore": <realistic score 55-92>,
+  "overallScore": <score 0-100 based on actual performance:
+    0-40: Major gaps, needs significant practice
+    40-60: Some good points but needs improvement
+    60-75: Solid performance, minor areas to polish
+    75-90: Strong performance
+    90-100: Exceptional, interview-ready>,
   "categoryScores": {
     "communication": <0-100>,
     "technicalKnowledge": <0-100>,
@@ -188,16 +238,22 @@ Provide detailed analysis as JSON only:
   "areasForImprovement": ["specific area with actionable tip", "another area", "third area"],
   "detailedFeedback": "2-3 paragraphs of personalized feedback. Reference specific things they said. Be encouraging but honest. Give concrete advice.",
   "questionFeedback": [${responses.map((_, i) => `{"questionNumber": ${i + 1}, "rating": "excellent|good|average|needs improvement", "feedback": "specific feedback about THIS answer"}`).join(', ')}],
-  "hiringRecommendation": "Strong Hire|Hire|Maybe|No Hire",
+  "hiringRecommendation": "Keep Practicing|Good Progress|Interview Ready|Expert Level",
   "interviewTips": ["specific actionable tip", "another tip", "third tip"]
 }`;
 
     try {
+        console.log('Calling Gemini API for analysis...');
         const response = await callGeminiAPI(systemPrompt, userMessage, 0.7);
+        console.log('Raw Gemini response length:', response?.length);
+
         const jsonMatch = response.match(/\{[\s\S]*\}/);
         if (jsonMatch) {
-            return JSON.parse(jsonMatch[0]);
+            const parsed = JSON.parse(jsonMatch[0]);
+            console.log('Parsed analysis successfully, overallScore:', parsed.overallScore);
+            return parsed;
         }
+        console.warn('Could not parse JSON from Gemini response');
         return getFallbackAnalysis(responses.length);
     } catch (error) {
         console.error('Failed to generate analysis:', error);
@@ -232,7 +288,7 @@ const getFallbackAnalysis = (questionCount: number) => ({
         rating: "good" as const,
         feedback: "Keep practicing with specific examples!"
     })),
-    hiringRecommendation: "Practice Complete",
+    hiringRecommendation: "Keep Practicing",
     interviewTips: [
         "Use the STAR method: Situation, Task, Action, Result",
         "Prepare 3-5 stories that showcase different skills",

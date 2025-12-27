@@ -80,23 +80,40 @@ export async function POST(request: NextRequest) {
             );
         }
 
+        // Log the raw conversation for debugging
+        log('Raw conversation received', {
+            conversation: JSON.stringify(conversation?.slice(0, 10) || [], null, 2)
+        });
+
         // Parse conversation to extract Q&A pairs
+        // The transcript alternates between agent questions and user responses
         const responses = [];
         if (conversation && Array.isArray(conversation)) {
-            for (let i = 0; i < conversation.length - 1; i++) {
-                const currentRole = conversation[i].role;
-                const nextRole = conversation[i + 1]?.role;
+            // Collect all agent messages and user messages separately, then pair them
+            let currentAgentMessage = '';
 
-                // Allow both 'ai' and 'agent' roles
-                if ((currentRole === 'ai' || currentRole === 'agent') && nextRole === 'user') {
+            for (let i = 0; i < conversation.length; i++) {
+                const item = conversation[i];
+                const role = item.role;
+                const content = item.content;
+
+                // Allow both 'ai' and 'agent' roles for the interviewer
+                if (role === 'ai' || role === 'agent') {
+                    // If we have a pending agent message and this is a new one,
+                    // check if we need to combine or start fresh
+                    currentAgentMessage = content;
+                } else if (role === 'user' && currentAgentMessage) {
+                    // Pair the agent message with this user response
                     responses.push({
-                        question: conversation[i].content,
-                        userResponse: conversation[i + 1].content,
+                        question: currentAgentMessage,
+                        userResponse: content,
                     });
+                    currentAgentMessage = '';
                 }
             }
         }
-        log('Extracted Q&A pairs', { count: responses.length });
+        log('Extracted Q&A pairs', { count: responses.length, firstPair: responses[0] });
+
 
         // Generate comprehensive analysis using Gemini
         log('Calling Gemini API...');

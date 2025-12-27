@@ -1,9 +1,42 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { generateFollowUpQuestion } from '@/lib/gemini';
-import { supabase } from '@/lib/supabase';
+import { createClient } from '@supabase/supabase-js';
 
 export async function POST(request: NextRequest) {
     try {
+        // Extract and validate auth token
+        const authHeader = request.headers.get('Authorization');
+        const token = authHeader?.split(' ')[1];
+
+        if (!token) {
+            return NextResponse.json(
+                { error: 'Unauthorized: No token provided' },
+                { status: 401 }
+            );
+        }
+
+        // Create authenticated Supabase client
+        const supabase = createClient(
+            process.env.NEXT_PUBLIC_SUPABASE_URL!,
+            process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+            {
+                global: {
+                    headers: {
+                        Authorization: `Bearer ${token}`
+                    }
+                }
+            }
+        );
+
+        // Verify user
+        const { data: { user }, error: authError } = await supabase.auth.getUser();
+        if (authError || !user) {
+            return NextResponse.json(
+                { error: 'Unauthorized: Invalid token' },
+                { status: 401 }
+            );
+        }
+
         const body = await request.json();
         const { interviewId, questionIndex, userResponse, questions, jobRole, conversation } = body;
 
@@ -50,25 +83,14 @@ export async function POST(request: NextRequest) {
             const nextQuestionIndex = questionIndex + 1;
             const nextQuestion = questions?.[nextQuestionIndex];
 
-            if (nextQuestion) {
-                // Generate a transition or follow-up
-                const transition = await generateFollowUpQuestion(
-                    currentQuestion,
-                    userResponse,
-                    jobRole,
-                    conversationHistory
-                );
-
-                // Combine transition with next question
-                aiResponse = `${transition}\n\nHere's my next question: ${nextQuestion}`;
-            } else {
-                aiResponse = await generateFollowUpQuestion(
-                    currentQuestion,
-                    userResponse,
-                    jobRole,
-                    conversationHistory
-                );
-            }
+            // Generate a natural transition that includes the next question
+            aiResponse = await generateFollowUpQuestion(
+                currentQuestion,
+                userResponse,
+                jobRole,
+                conversationHistory,
+                nextQuestion // Pass the next question to be woven in naturally
+            );
         }
 
         return NextResponse.json({
