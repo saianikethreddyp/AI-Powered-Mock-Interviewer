@@ -1,0 +1,48 @@
+erDiagram
+    USERS ||--o{ INTERVIEWS : creates
+    INTERVIEWS ||--o{ RESPONSES : contains
+    INTERVIEWS ||--o| ANALYSIS : generates
+
+    USERS {
+        uuid id PK
+        string email
+        string full_name
+        timestamp created_at
+    }
+
+    INTERVIEWS {
+        uuid id PK
+        uuid user_id FK
+        string job_role
+        text job_description
+        text resume_text
+        int question_count
+        enum status
+        timestamp started_at
+        timestamp completed_at
+        timestamp created_at
+    }
+
+    RESPONSES {
+        uuid id PK
+        uuid interview_id FK
+        int question_number
+        text question
+        text user_response
+        text ai_feedback
+        timestamp created_at
+    }
+
+    ANALYSIS {
+        uuid id PK
+        uuid interview_id FK
+        int overall_score
+        jsonb category_scores
+        array strengths
+        array areas_for_improvement
+        text detailed_feedback
+        jsonb question_feedback
+        string hiring_recommendation
+        array interview_tips
+        timestamp created_at
+    }

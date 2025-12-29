@@ -1,0 +1,41 @@
+flowchart TB
+    subgraph Client["Frontend (Next.js 16 + React 19)"]
+        direction TB
+        LP[Landing Page]
+        Auth[Authentication]
+        Setup[Interview Setup]
+        Interview[Interview Session]
+        Results[Results Dashboard]
+    end
+
+    subgraph VoiceAI["Voice AI Layer"]
+        Retell[Retell Voice AI]
+        STT[Speech-to-Text]
+        TTS[Text-to-Speech]
+    end
+
+    subgraph Backend["Backend Services (Next.js API Routes)"]
+        API["/api/*"]
+        RetellAPI["/api/retell/*"]
+        InterviewAPI["/api/interview/*"]
+        AnalysisAPI["/api/analysis/*"]
+    end
+
+    subgraph AI["AI Processing Layer"]
+        Gemini[Google Gemini AI]
+        QGen[Question Generation]
+        Eval[Response Evaluation]
+        Analysis[Performance Analysis]
+    end
+
+    subgraph Database["Data Layer (Supabase)"]
+        SupaAuth[Supabase Auth]
+        SupaDB[(PostgreSQL)]
+        RLS[Row Level Security]
+    end
+
+    Client <--> Backend
+    Interview <--> VoiceAI
+    Backend <--> AI
+    Backend <--> Database
+    VoiceAI <--> RetellAPI

@@ -1,0 +1,45 @@
+sequenceDiagram
+    autonumber
+    actor User
+    participant FE as Frontend
+    participant API as API Server
+    participant Retell as Retell Voice AI
+    participant Gemini as Google Gemini
+    participant DB as Supabase
+
+    rect rgb(240, 248, 255)
+        Note over User,DB: Setup Phase
+        User->>FE: Enter job details + resume
+        FE->>API: POST /api/interview/setup
+        API->>Gemini: Generate personalized questions
+        Gemini-->>API: Questions array
+        API->>DB: Create interview record
+        DB-->>API: Interview ID
+        API-->>FE: Interview ready
+    end
+
+    rect rgb(255, 250, 240)
+        Note over User,DB: Interview Phase
+        FE->>API: POST /api/retell/create-web-call
+        API->>Retell: Create voice session
+        Retell-->>API: Access token
+        API-->>FE: Token + agent config
+        
+        loop Each Question
+            Retell->>User: AI asks question (voice)
+            User->>Retell: User responds (voice)
+            Retell->>API: Webhook: transcript update
+            API->>DB: Store Q and A pair
+        end
+    end
+
+    rect rgb(240, 255, 240)
+        Note over User,DB: Analysis Phase
+        FE->>API: POST /api/interview/complete
+        API->>DB: Fetch all responses
+        API->>Gemini: Generate comprehensive analysis
+        Gemini-->>API: Scores + feedback
+        API->>DB: Store analysis
+        API-->>FE: Analysis results
+        FE->>User: Display results
+    end

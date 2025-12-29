@@ -41,3 +41,21 @@ test-write.txt
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Metadata and resolved files
+*.metadata.json
+*.resolved
+*.resolved.*
+
+# Logs
+*.log

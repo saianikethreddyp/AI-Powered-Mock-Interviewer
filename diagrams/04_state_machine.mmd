@@ -1,0 +1,18 @@
+stateDiagram-v2
+    direction LR
+    
+    [*] --> Idle
+    
+    Idle --> Setup: User enters details
+    Setup --> Connecting: Start interview
+    Connecting --> Active: Retell connected
+    Active --> Speaking: AI talking
+    Speaking --> Listening: Users turn
+    Listening --> Speaking: AI responds
+    Speaking --> Completing: End interview
+    Completing --> Results: Analysis ready
+    Results --> [*]
+    
+    Connecting --> Error: Connection failed
+    Active --> Error: Runtime error
+    Error --> Idle: Retry

@@ -1,0 +1,36 @@
+flowchart TB
+    subgraph Input["Audio Input"]
+        MIC[Microphone]
+        AUDIO[Audio Stream]
+    end
+
+    subgraph Processing["Audio Processing"]
+        VAD[Voice Activity Detection]
+        BUFFER[Audio Buffer]
+        ENCODE[Opus Encoding]
+    end
+
+    subgraph Retell["Retell Cloud Processing"]
+        STT[Speech-to-Text]
+        NLU[Natural Language Understanding]
+        DM[Dialog Management]
+        NLG[Natural Language Generation]
+        TTS[Text-to-Speech]
+    end
+
+    subgraph Output["Audio Output"]
+        DECODE[Audio Decoding]
+        SPEAKER[Speaker Output]
+    end
+
+    MIC --> AUDIO
+    AUDIO --> VAD
+    VAD --> BUFFER
+    BUFFER --> ENCODE
+    ENCODE --> STT
+    STT --> NLU
+    NLU --> DM
+    DM --> NLG
+    NLG --> TTS
+    TTS --> DECODE
+    DECODE --> SPEAKER

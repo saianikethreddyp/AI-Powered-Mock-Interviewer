@@ -1,0 +1,35 @@
+flowchart TB
+    subgraph Frontend["Frontend Layer"]
+        Next[Next.js 16]
+        React[React 19]
+        TS[TypeScript]
+        Tailwind[TailwindCSS]
+        Lucide[Lucide Icons]
+    end
+
+    subgraph Backend["Backend Layer"]
+        APIRoutes[Next.js API Routes]
+        Middleware[Auth Middleware]
+    end
+
+    subgraph AI["AI Services"]
+        Gemini[Google Gemini 1.5 Flash]
+        RetellAI[Retell Voice AI]
+    end
+
+    subgraph Database["Database Layer"]
+        Supabase[Supabase]
+        Postgres[(PostgreSQL)]
+        Auth[Supabase Auth]
+    end
+
+    subgraph Infrastructure["Infrastructure"]
+        Vercel[Vercel Hosting]
+        Edge[Edge Functions]
+    end
+
+    Frontend --> Backend
+    Backend --> AI
+    Backend --> Database
+    Frontend --> Infrastructure
+    Backend --> Infrastructure
