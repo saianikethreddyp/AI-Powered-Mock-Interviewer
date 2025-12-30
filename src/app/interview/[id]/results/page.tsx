@@ -7,6 +7,8 @@ import { useAuth } from '@/context/AuthContext';
 import { supabase } from '@/lib/supabase';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
+import { Sidebar } from '@/components/ui/Sidebar';
+import { ProgressRing, StatProgress } from '@/components/ui/ProgressRing';
 import { Interview, InterviewAnalysis } from '@/types';
 import {
     ArrowLeft,
@@ -22,8 +24,9 @@ import {
     Share2,
     RotateCcw,
     Home,
+    Sparkles,
+    BarChart3
 } from 'lucide-react';
-import styles from './page.module.css';
 
 export default function ResultsPage({ params }: { params: Promise<{ id: string }> }) {
     const { id } = use(params);
@@ -103,9 +106,9 @@ export default function ResultsPage({ params }: { params: Promise<{ id: string }
 
     if (authLoading || loading) {
         return (
-            <div className="min-h-screen flex items-center justify-center bg-dark-900 flex-col gap-4">
+            <div className="min-h-screen flex items-center justify-center bg-surface-50 flex-col gap-4">
                 <div className="w-10 h-10 border-2 border-primary border-t-transparent rounded-full animate-spin" />
-                <p className="text-slate-400">Loading your results...</p>
+                <p className="text-neutral-500">Loading your results...</p>
             </div>
         );
     }
@@ -117,28 +120,36 @@ export default function ResultsPage({ params }: { params: Promise<{ id: string }
 
     if (error || !interview) {
         return (
-            <div className="min-h-screen flex flex-col items-center justify-center bg-dark-900 text-center p-6">
-                <AlertCircle size={48} className="text-red-500 mb-4" />
-                <h2 className="text-2xl font-bold text-white mb-2">Results Not Found</h2>
-                <p className="text-slate-400 mb-6">{error || 'Interview results not available'}</p>
+            <div className="min-h-screen flex flex-col items-center justify-center bg-surface-50 text-center p-6">
+                <div className="w-16 h-16 rounded-2xl bg-danger-light flex items-center justify-center mb-6">
+                    <AlertCircle size={32} className="text-danger" />
+                </div>
+                <h2 className="text-2xl font-bold text-neutral-900 mb-2">Results Not Found</h2>
+                <p className="text-neutral-500 mb-6">{error || 'Interview results not available'}</p>
                 <Link href="/dashboard">
-                    <Button>Back to Dashboard</Button>
+                    <Button variant="primary">Back to Dashboard</Button>
                 </Link>
             </div>
         );
     }
 
     const getScoreColor = (score: number) => {
-        if (score >= 80) return '#22c55e';
-        if (score >= 60) return '#f59e0b';
-        return '#ef4444';
+        if (score >= 80) return '#22c55e'; // Success
+        if (score >= 60) return '#f59e0b'; // Warning
+        return '#ef4444'; // Danger
+    };
+
+    const getScoreVariant = (score: number) => {
+        if (score >= 80) return 'success';
+        if (score >= 60) return 'warning';
+        return 'danger';
     };
 
     const getRecommendationColor = (rec: string) => {
-        if (rec === 'Strong Hire') return '#22c55e';
-        if (rec === 'Hire') return '#10b981';
-        if (rec === 'Maybe') return '#f59e0b';
-        return '#ef4444';
+        if (rec === 'Strong Hire') return 'text-success bg-success-light border-success/20';
+        if (rec === 'Hire') return 'text-primary bg-primary-50 border-primary/20';
+        if (rec === 'Maybe') return 'text-warning bg-warning-light border-warning/20';
+        return 'text-danger bg-danger-light border-danger/20';
     };
 
     // Use mock data if no analysis exists yet
@@ -169,218 +180,207 @@ export default function ResultsPage({ params }: { params: Promise<{ id: string }
     ];
 
     return (
-        <div className="min-h-screen bg-dark-900 pb-20 text-slate-200">
-            {/* Background */}
-            <div className="fixed inset-0 pointer-events-none">
-                <div className="absolute top-0 right-0 w-[600px] h-[600px] bg-primary/10 blur-[120px] rounded-full" />
-                <div className="absolute bottom-0 left-0 w-[400px] h-[400px] bg-purple-500/10 blur-[100px] rounded-full" />
-            </div>
+        <div className="min-h-screen bg-surface-50 text-neutral-900 font-sans">
+            {/* Sidebar */}
+            <Sidebar />
 
-            {/* Header */}
-            <header className="sticky top-0 z-50 bg-dark-900/80 backdrop-blur-xl border-b border-white/5 px-6 py-4 flex items-center justify-between">
-                <Link href="/dashboard" className="inline-flex items-center gap-2 text-slate-400 hover:text-white transition-colors">
-                    <ArrowLeft size={20} />
-                    Back to Dashboard
-                </Link>
-                <Link href="/interview/setup">
-                    <Button variant="secondary" size="sm">
-                        <RotateCcw size={16} />
-                        New Interview
-                    </Button>
-                </Link>
-            </header>
+            {/* Main Content */}
+            <div className="ml-[280px]">
+                {/* Header */}
+                <header className="sticky top-0 z-30 bg-white/80 backdrop-blur-xl border-b border-neutral-100">
+                    <div className="px-8 h-16 flex items-center justify-between">
+                        <Link href="/dashboard" className="inline-flex items-center gap-2 text-neutral-500 hover:text-neutral-900 transition-colors text-sm font-medium">
+                            <ArrowLeft size={18} />
+                            Back to Dashboard
+                        </Link>
+                        <div className="flex gap-3">
+                            <Button variant="ghost" size="sm" className="hidden sm:flex">
+                                <Share2 size={16} />
+                                Share
+                            </Button>
+                            <Button variant="ghost" size="sm" className="hidden sm:flex">
+                                <Download size={16} />
+                                Export
+                            </Button>
+                        </div>
+                    </div>
+                </header>
 
-            <main className="max-w-5xl mx-auto px-6 py-10 relative z-10 space-y-8 animate-enter">
-                {/* Title */}
-                <div className="text-center">
-                    <h1 className="text-3xl md:text-4xl font-bold text-white mb-2">Interview Results</h1>
-                    <p className="text-xl text-primary font-medium mb-1">{interview.job_role}</p>
-                    <p className="text-sm text-slate-500">
-                        Completed on {new Date(interview.completed_at || interview.created_at).toLocaleDateString()}
-                    </p>
-                </div>
+                <main className="p-8 max-w-6xl mx-auto space-y-8 animate-enter">
+                    {/* Title Section */}
+                    <div className="flex items-start justify-between">
+                        <div>
+                            <div className="flex items-center gap-3 mb-2">
+                                <h1 className="text-3xl font-bold font-heading text-neutral-900">Result Analysis</h1>
+                                <span className="px-2.5 py-0.5 rounded-full bg-surface-200 text-neutral-600 text-xs font-semibold uppercase tracking-wider">
+                                    {interview.status === 'completed' ? 'Completed' : 'Pending'}
+                                </span>
+                            </div>
+                            <p className="text-lg text-primary font-medium">{interview.job_role}</p>
+                            <p className="text-sm text-neutral-500 mt-1">
+                                Completed on {new Date(interview.completed_at || interview.created_at).toLocaleDateString('en-US', {
+                                    weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
+                                })}
+                            </p>
+                        </div>
+                        <div className="text-right hidden md:block">
+                            <Link href="/interview/setup">
+                                <Button variant="primary">
+                                    <RotateCcw size={18} />
+                                    Practice Again
+                                </Button>
+                            </Link>
+                        </div>
+                    </div>
 
-                {/* Overall Score */}
-                <Card variant="gradient" padding="lg" className="flex flex-col md:flex-row items-center justify-between gap-10">
-                    <div className="relative w-48 h-48 flex items-center justify-center shrink-0">
-                        {(!analysis) ? (
+                    {/* Overall Score Card */}
+                    <Card variant="default" padding="xl" className="relative overflow-hidden">
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-10 items-center relative z-10">
+                            {/* Score Circle */}
                             <div className="flex flex-col items-center justify-center">
-                                <div className="w-16 h-16 border-4 border-white/20 border-t-white rounded-full animate-spin mb-4" />
-                            </div>
-                        ) : (
-                            <>
-                                <svg viewBox="0 0 100 100" className="w-full h-full -rotate-90 transform">
-                                    <circle cx="50" cy="50" r="45" stroke="currentColor" strokeWidth="8" className="text-white/10 fill-none" />
-                                    <circle
-                                        cx="50"
-                                        cy="50"
-                                        r="45"
-                                        strokeWidth="8"
-                                        className="fill-none transition-all duration-1000 ease-out"
-                                        strokeLinecap="round"
-                                        style={{
-                                            strokeDasharray: `${displayAnalysis.overall_score * 2.83} 283`,
-                                            stroke: getScoreColor(displayAnalysis.overall_score),
-                                        }}
-                                    />
-                                </svg>
-                                <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
-                                    <span className="text-4xl font-bold text-white font-heading">{displayAnalysis.overall_score}</span>
-                                    <span className="text-sm font-medium text-slate-300">/ 100</span>
+                                <ProgressRing
+                                    value={displayAnalysis.overall_score}
+                                    size="xl"
+                                    color={getScoreVariant(displayAnalysis.overall_score)}
+                                />
+                                <div className="mt-4 text-center">
+                                    <span className="text-sm font-medium text-neutral-500 uppercase tracking-widest">Overall Score</span>
                                 </div>
-                            </>
-                        )}
-                    </div>
-
-                    <div className="flex-1 text-center md:text-left">
-                        <h2 className="text-2xl font-bold text-white mb-4">
-                            {(!analysis) ? 'Analyzing Interview...' : 'Overall Performance'}
-                        </h2>
-                        {(!analysis) ? (
-                            <div className="space-y-2">
-                                <p className="text-slate-300 leading-relaxed max-w-xl animate-pulse">
-                                    Our AI represents your conversation and generates detailed feedback.
-                                    This usually takes about 10-20 seconds.
-                                </p>
                             </div>
-                        ) : (
-                            <>
-                                <div className="inline-block px-6 py-3 rounded-xl border font-bold text-lg"
-                                    style={{
-                                        backgroundColor: `${getRecommendationColor(displayAnalysis.hiring_recommendation)}15`,
-                                        borderColor: `${getRecommendationColor(displayAnalysis.hiring_recommendation)}30`,
-                                        color: getRecommendationColor(displayAnalysis.hiring_recommendation)
-                                    }}>
-                                    {displayAnalysis.hiring_recommendation.toUpperCase()}
-                                </div>
-                                <p className="mt-4 text-slate-300 leading-relaxed max-w-xl">
-                                    {displayAnalysis.hiring_recommendation === 'Strong Hire'
-                                        ? "Excellent work! You demonstrated strong capability across all key areas."
-                                        : displayAnalysis.hiring_recommendation === 'Hire'
-                                            ? "Great job. You showed solid skills, though there are a few areas for polish."
-                                            : "Good effort. Focus on the improvement areas highlighted below to reach the next level."}
-                                </p>
-                            </>
-                        )}
-                    </div>
-                </Card>
 
-                {/* Category Scores */}
-                <section>
-                    <h2 className="text-xl font-semibold text-white mb-6 flex items-center gap-2">
-                        <Target size={20} className="text-slate-400" />
-                        Performance by Category
-                    </h2>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                        {categories.map((cat) => {
-                            const score = displayAnalysis.category_scores?.[cat.key as keyof typeof displayAnalysis.category_scores] || 0;
-                            return (
-                                <Card key={cat.key} variant="glass" padding="md" className="flex flex-col gap-4 hover:bg-white/10 transition-colors">
-                                    <div className="flex items-center justify-between">
-                                        <div className="flex items-center gap-3">
-                                            <div className="p-2 rounded-lg bg-white/5 text-slate-300">
-                                                {cat.icon}
-                                            </div>
-                                            <span className="font-medium text-white">{cat.label}</span>
+                            {/* Recommendation & Summary */}
+                            <div className="md:col-span-2 space-y-6">
+                                <div>
+                                    <h2 className="text-2xl font-bold text-neutral-900 mb-2">
+                                        {!analysis ? 'Analyzing Interview...' : 'Performance Summary'}
+                                    </h2>
+                                    {!analysis ? (
+                                        <p className="text-neutral-500 animate-pulse">
+                                            Generating detailed feedback... (~10s)
+                                        </p>
+                                    ) : (
+                                        <div className="flex items-center gap-4 mb-4">
+                                            <span className={`px-4 py-1.5 rounded-lg border text-sm font-bold uppercase tracking-wider ${getRecommendationColor(displayAnalysis.hiring_recommendation)}`}>
+                                                {displayAnalysis.hiring_recommendation}
+                                            </span>
                                         </div>
-                                        <span className="font-bold" style={{ color: getScoreColor(score) }}>{score}%</span>
-                                    </div>
-                                    <div className="h-2 w-full bg-dark-900 rounded-full overflow-hidden">
-                                        <div
-                                            className="h-full rounded-full transition-all duration-1000 ease-out"
-                                            style={{
-                                                width: `${score}%`,
-                                                backgroundColor: getScoreColor(score),
-                                            }}
+                                    )}
+                                    <p className="text-neutral-600 leading-relaxed text-lg">
+                                        {!analysis
+                                            ? "Our AI represents your conversation and generates detailed feedback. "
+                                            : displayAnalysis.hiring_recommendation === 'Strong Hire'
+                                                ? "Excellent work! You demonstrated strong capability across key areas. Your responses were clear, structured, and showed great depth."
+                                                : displayAnalysis.hiring_recommendation === 'Hire'
+                                                    ? "Great job. You showed solid skills and good communication, though there are a few specific areas where you could be more concise."
+                                                    : "Good effort. Focus on the improvement areas highlighted below to reach the next level in your interview performance."}
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    </Card>
+
+                    {/* Category Scores Grid */}
+                    <section>
+                        <h3 className="text-lg font-bold text-neutral-900 mb-4 flex items-center gap-2">
+                            <BarChart3 size={20} className="text-primary" />
+                            Category Breakdown
+                        </h3>
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                            {categories.map((cat) => {
+                                const score = displayAnalysis.category_scores?.[cat.key as keyof typeof displayAnalysis.category_scores] || 0;
+                                return (
+                                    <Card key={cat.key} variant="default" padding="md" className="group hover:border-primary/30 transition-colors">
+                                        <div className="flex items-center justify-between mb-3">
+                                            <div className="flex items-center gap-3">
+                                                <div className="w-8 h-8 rounded-lg bg-surface-100 flex items-center justify-center text-neutral-500 group-hover:text-primary transition-colors">
+                                                    {cat.icon}
+                                                </div>
+                                                <span className="font-medium text-neutral-700">{cat.label}</span>
+                                            </div>
+                                            <span className="font-bold text-neutral-900">{score}%</span>
+                                        </div>
+                                        <StatProgress
+                                            value={score}
+                                            color={getScoreVariant(score)}
+                                            className="h-2"
                                         />
-                                    </div>
-                                </Card>
-                            );
-                        })}
+                                    </Card>
+                                );
+                            })}
+                        </div>
+                    </section>
+
+                    {/* Detailed Analysis */}
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                        {/* Strengths */}
+                        <Card variant="default" padding="lg">
+                            <div className="flex items-center gap-3 mb-6">
+                                <div className="w-10 h-10 rounded-xl bg-success-light flex items-center justify-center text-success">
+                                    <TrendingUp size={20} />
+                                </div>
+                                <h3 className="text-lg font-bold text-neutral-900">Key Strengths</h3>
+                            </div>
+                            <ul className="space-y-4">
+                                {displayAnalysis.strengths?.map((strength: string, i: number) => (
+                                    <li key={i} className="flex items-start gap-3">
+                                        <CheckCircle size={18} className="text-success shrink-0 mt-0.5" />
+                                        <span className="text-neutral-600">{strength}</span>
+                                    </li>
+                                ))}
+                            </ul>
+                        </Card>
+
+                        {/* Improvements */}
+                        <Card variant="default" padding="lg">
+                            <div className="flex items-center gap-3 mb-6">
+                                <div className="w-10 h-10 rounded-xl bg-danger-light flex items-center justify-center text-danger">
+                                    <TrendingDown size={20} />
+                                </div>
+                                <h3 className="text-lg font-bold text-neutral-900">Areas for Improvement</h3>
+                            </div>
+                            <ul className="space-y-4">
+                                {displayAnalysis.areas_for_improvement?.map((area: string, i: number) => (
+                                    <li key={i} className="flex items-start gap-3">
+                                        <AlertCircle size={18} className="text-danger shrink-0 mt-0.5" />
+                                        <span className="text-neutral-600">{area}</span>
+                                    </li>
+                                ))}
+                            </ul>
+                        </Card>
                     </div>
-                </section>
 
-                {/* Strengths & Improvements */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                    <Card variant="glass" padding="lg">
-                        <div className="flex items-center gap-3 mb-6">
-                            <div className="p-2 rounded-lg bg-emerald-500/10 text-emerald-400">
-                                <TrendingUp size={24} />
-                            </div>
-                            <h3 className="text-lg font-bold text-white">Strengths</h3>
+                    {/* AI Feedback */}
+                    <Card variant="default" padding="lg" className="border-l-4 border-l-primary">
+                        <div className="flex items-center gap-3 mb-4">
+                            <Sparkles size={20} className="text-primary" />
+                            <h3 className="text-lg font-bold text-neutral-900">AI Interviewer Feedback</h3>
                         </div>
-                        <ul className="space-y-4">
-                            {displayAnalysis.strengths?.map((strength: string, i: number) => (
-                                <li key={i} className="flex items-start gap-3 text-slate-300">
-                                    <CheckCircle size={18} className="text-emerald-500 shrink-0 mt-0.5" />
-                                    <span>{strength}</span>
-                                </li>
-                            ))}
-                        </ul>
+                        <p className="text-neutral-600 leading-relaxed whitespace-pre-wrap">
+                            {displayAnalysis.detailed_feedback}
+                        </p>
                     </Card>
 
-                    <Card variant="glass" padding="lg">
-                        <div className="flex items-center gap-3 mb-6">
-                            <div className="p-2 rounded-lg bg-red-500/10 text-red-400">
-                                <TrendingDown size={24} />
+                    {/* Tips */}
+                    {displayAnalysis.interview_tips && displayAnalysis.interview_tips.length > 0 && (
+                        <div className="mb-12">
+                            <h3 className="text-lg font-bold text-neutral-900 mb-4 flex items-center gap-2">
+                                <Lightbulb size={20} className="text-warning" />
+                                Tips for Next Time
+                            </h3>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                {displayAnalysis.interview_tips.map((tip: string, i: number) => (
+                                    <div key={i} className="bg-white p-5 rounded-xl border border-neutral-200 shadow-sm flex gap-4">
+                                        <span className="flex items-center justify-center w-6 h-6 rounded-full bg-warning-light text-warning-dark text-xs font-bold shrink-0">
+                                            {i + 1}
+                                        </span>
+                                        <span className="text-neutral-600 text-sm font-medium">{tip}</span>
+                                    </div>
+                                ))}
                             </div>
-                            <h3 className="text-lg font-bold text-white">Areas for Improvement</h3>
                         </div>
-                        <ul className="space-y-4">
-                            {displayAnalysis.areas_for_improvement?.map((area: string, i: number) => (
-                                <li key={i} className="flex items-start gap-3 text-slate-300">
-                                    <AlertCircle size={18} className="text-red-400 shrink-0 mt-0.5" />
-                                    <span>{area}</span>
-                                </li>
-                            ))}
-                        </ul>
-                    </Card>
-                </div>
-
-                {/* Detailed Feedback */}
-                <Card variant="glass" padding="lg">
-                    <h3 className="text-lg font-bold text-white mb-4">Detailed Feedback</h3>
-                    <p className="text-slate-300 leading-relaxed whitespace-pre-wrap">{displayAnalysis.detailed_feedback}</p>
-                </Card>
-
-                {/* Tips */}
-                {displayAnalysis.interview_tips && displayAnalysis.interview_tips.length > 0 && (
-                    <Card variant="glass" padding="lg">
-                        <div className="flex items-center gap-3 mb-6">
-                            <div className="p-2 rounded-lg bg-amber-500/10 text-amber-400">
-                                <Lightbulb size={24} />
-                            </div>
-                            <h3 className="text-lg font-bold text-white">Tips for Next Time</h3>
-                        </div>
-                        <ul className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            {displayAnalysis.interview_tips.map((tip: string, i: number) => (
-                                <li key={i} className="flex items-start gap-3 bg-white/5 p-4 rounded-xl text-slate-300">
-                                    <span className="flex items-center justify-center w-6 h-6 rounded-full bg-amber-500/20 text-amber-400 text-xs font-bold shrink-0">
-                                        {i + 1}
-                                    </span>
-                                    <span>{tip}</span>
-                                </li>
-                            ))}
-                        </ul>
-                    </Card>
-                )}
-
-                {/* Actions */}
-                <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-8">
-                    <Link href="/interview/setup" className="w-full sm:w-auto">
-                        <Button size="lg" className="w-full sm:w-auto">
-                            <RotateCcw size={20} />
-                            Practice Again
-                        </Button>
-                    </Link>
-                    <Link href="/dashboard" className="w-full sm:w-auto">
-                        <Button variant="secondary" size="lg" className="w-full sm:w-auto">
-                            <Home size={20} />
-                            Go to Dashboard
-                        </Button>
-                    </Link>
-                </div>
-            </main>
+                    )}
+                </main>
+            </div>
         </div>
     );
 }

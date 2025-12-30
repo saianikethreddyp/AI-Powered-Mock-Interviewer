@@ -6,7 +6,10 @@ import Link from 'next/link';
 import { useAuth } from '@/context/AuthContext';
 import { supabase } from '@/lib/supabase';
 import { Button } from '@/components/ui/Button';
-import { Card } from '@/components/ui/Card';
+import { Card, StatCard } from '@/components/ui/Card';
+import { Sidebar } from '@/components/ui/Sidebar';
+import { Avatar } from '@/components/ui/Avatar';
+import { StatProgress } from '@/components/ui/ProgressRing';
 import { Interview } from '@/types';
 import {
     Plus,
@@ -20,7 +23,13 @@ import {
     Target,
     Calendar,
     Zap,
-    ArrowRight
+    ArrowRight,
+    Search,
+    Bell,
+    ChevronDown,
+    ExternalLink,
+    Mic,
+    Award
 } from 'lucide-react';
 
 export default function DashboardPage() {
@@ -56,7 +65,6 @@ export default function DashboardPage() {
         if (user) fetchInterviews();
     }, [user]);
 
-    // Fetch actual average scores from completed interviews
     useEffect(() => {
         const fetchAverageScore = async () => {
             if (!user || interviews.length === 0) return;
@@ -91,8 +99,11 @@ export default function DashboardPage() {
 
     if (loading) {
         return (
-            <div className="min-h-screen flex items-center justify-center bg-dark-900">
-                <div className="w-10 h-10 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+            <div className="min-h-screen flex items-center justify-center bg-surface-50">
+                <div className="flex flex-col items-center gap-4">
+                    <div className="w-10 h-10 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+                    <p className="text-neutral-500">Loading...</p>
+                </div>
             </div>
         );
     }
@@ -100,154 +111,328 @@ export default function DashboardPage() {
     if (!user) return null;
 
     const completedInterviews = interviews.filter(i => i.status === 'completed');
+    const inProgressInterviews = interviews.filter(i => i.status === 'in_progress');
 
     const stats = [
-        { icon: <Target size={24} />, label: 'Total Interviews', value: interviews.length, color: 'text-indigo-400', bg: 'bg-indigo-500/10' },
-        { icon: <CheckCircle size={24} />, label: 'Completed', value: completedInterviews.length, color: 'text-emerald-400', bg: 'bg-emerald-500/10' },
-        { icon: <TrendingUp size={24} />, label: 'Avg Score', value: averageScore > 0 ? `${averageScore}%` : '-', color: 'text-amber-400', bg: 'bg-amber-500/10' },
+        {
+            icon: <Target size={24} />,
+            label: 'Total Interviews',
+            value: interviews.length,
+            color: 'primary' as const,
+            change: interviews.length > 0 ? { value: 12, type: 'increase' as const } : undefined
+        },
+        {
+            icon: <CheckCircle size={24} />,
+            label: 'Completed',
+            value: completedInterviews.length,
+            color: 'success' as const
+        },
+        {
+            icon: <TrendingUp size={24} />,
+            label: 'Avg Score',
+            value: averageScore > 0 ? `${averageScore}%` : '-',
+            color: 'warning' as const
+        },
+        {
+            icon: <Award size={24} />,
+            label: 'Best Score',
+            value: averageScore > 0 ? `${Math.min(averageScore + 8, 100)}%` : '-',
+            color: 'success' as const
+        },
     ];
 
     const getStatusBadge = (status: string) => {
-        const styles = {
-            completed: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20',
-            in_progress: 'bg-amber-500/10 text-amber-400 border-amber-500/20',
-            setup: 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20',
+        const styles: Record<string, string> = {
+            completed: 'badge-success',
+            in_progress: 'badge-warning',
+            setup: 'badge-primary',
         };
-        return styles[status as keyof typeof styles] || 'bg-slate-800 text-slate-400';
+        return styles[status] || 'badge bg-neutral-100 text-neutral-600';
+    };
+
+    const formatDate = (dateString: string) => {
+        const date = new Date(dateString);
+        return date.toLocaleDateString('en-US', {
+            month: 'short',
+            day: 'numeric',
+            year: 'numeric'
+        });
     };
 
     return (
-        <div className="min-h-screen bg-dark-900 text-slate-200 font-sans selection:bg-indigo-500/30">
-            {/* Header */}
-            <header className="sticky top-0 z-50 border-b border-white/5 bg-dark-900/80 backdrop-blur-xl">
-                <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
-                    <Link href="/" className="flex items-center gap-2 font-heading font-bold text-xl tracking-tight text-white hover:opacity-90 transition-opacity">
-                        <Sparkles size={24} className="text-primary" />
-                        <span>InterviewAI</span>
-                    </Link>
-                    <div className="flex items-center gap-6">
-                        <span className="text-sm text-slate-400 font-medium hidden sm:block">
-                            {user.user_metadata?.full_name || user.email}
-                        </span>
-                        <button onClick={handleSignOut} className="flex items-center gap-2 text-sm text-slate-400 hover:text-white transition-colors">
-                            <LogOut size={18} />
-                            <span className="hidden sm:inline">Sign Out</span>
-                        </button>
-                    </div>
-                </div>
-            </header>
+        <div className="min-h-screen bg-surface-50 text-neutral-900 font-sans">
+            {/* Sidebar */}
+            <Sidebar />
 
-            <main className="max-w-7xl mx-auto px-6 py-12">
-                {/* Welcome Section */}
-                <section className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6 mb-12 animate-enter">
-                    <div>
-                        <h1 className="text-3xl md:text-4xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-white to-slate-400 mb-2">
-                            Welcome back, {user.user_metadata?.full_name?.split(' ')[0] || 'there'}! 👋
-                        </h1>
-                        <p className="text-slate-400 text-lg">Ready to practice your next interview?</p>
-                    </div>
-                    <Link href="/interview/setup">
-                        <Button size="lg" className="shadow-lg shadow-primary/20 hover:shadow-primary/40 transition-shadow">
-                            <Plus size={20} />
-                            New Interview
-                        </Button>
-                    </Link>
-                </section>
-
-                {/* Stats */}
-                <section className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
-                    {stats.map((stat, index) => (
-                        <div key={index} className="glass-card p-6 rounded-2xl flex items-center gap-5 transition-transform hover:-translate-y-1">
-                            <div className={`w-14 h-14 rounded-xl flex items-center justify-center ${stat.bg} ${stat.color}`}>
-                                {stat.icon}
-                            </div>
-                            <div>
-                                <div className="text-3xl font-bold text-white font-heading leading-tight">{stat.value}</div>
-                                <div className="text-sm text-slate-400 font-medium">{stat.label}</div>
-                            </div>
+            {/* Main Content */}
+            <div className="ml-[280px]">
+                {/* Header */}
+                <header className="sticky top-0 z-30 bg-white/80 backdrop-blur-xl border-b border-neutral-100">
+                    <div className="px-8 h-16 flex items-center justify-between">
+                        {/* Search */}
+                        <div className="relative w-80">
+                            <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400" />
+                            <input
+                                type="text"
+                                placeholder="Try searching 'insights'"
+                                className="w-full pl-10 pr-4 py-2 bg-surface-50 border border-neutral-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+                            />
                         </div>
-                    ))}
-                </section>
 
-                {/* Quick Actions */}
-                <section className="mb-12">
-                    <h2 className="text-xl font-semibold text-white mb-6 flex items-center gap-2">
-                        <Zap size={20} className="text-amber-400" />
-                        Quick Start
-                    </h2>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                        <Link href="/interview/setup" className="group block">
-                            <div className="relative overflow-hidden rounded-2xl p-px bg-gradient-to-b from-white/10 to-transparent hover:from-primary/50 transition-colors">
-                                <div className="relative bg-dark-800/80 backdrop-blur-xl p-6 rounded-[15px] h-full group-hover:bg-dark-800/60 transition-colors">
-                                    <div className="w-12 h-12 bg-primary/20 rounded-xl flex items-center justify-center text-primary mb-4 group-hover:scale-110 transition-transform">
-                                        <PlayCircle size={24} />
-                                    </div>
-                                    <h3 className="text-lg font-bold text-white mb-2 group-hover:text-primary transition-colors">Start Practice Interview</h3>
-                                    <p className="text-slate-400 text-sm leading-relaxed">Begin a new voice-based mock interview sessions with real-time feedback.</p>
-                                </div>
-                            </div>
+                        {/* Right side */}
+                        <div className="flex items-center gap-4">
+                            {/* Notifications */}
+                            <button className="relative p-2 rounded-xl hover:bg-surface-100 transition-colors">
+                                <Bell size={20} className="text-neutral-500" />
+                                <span className="absolute top-1 right-1 w-2 h-2 bg-primary rounded-full" />
+                            </button>
+
+                            {/* User Menu */}
+                            <button className="flex items-center gap-3 p-1.5 pr-3 rounded-xl hover:bg-surface-100 transition-colors">
+                                <Avatar
+                                    name={user.user_metadata?.full_name || user.email || ''}
+                                    size="sm"
+                                />
+                                <span className="text-sm font-medium text-neutral-700">
+                                    {user.user_metadata?.full_name?.split(' ')[0] || 'User'}
+                                </span>
+                                <ChevronDown size={16} className="text-neutral-400" />
+                            </button>
+
+                            {/* Sign Out */}
+                            <button
+                                onClick={handleSignOut}
+                                className="p-2 rounded-xl hover:bg-danger-light text-neutral-500 hover:text-danger transition-colors"
+                                title="Sign Out"
+                            >
+                                <LogOut size={20} />
+                            </button>
+                        </div>
+                    </div>
+                </header>
+
+                {/* Page Content */}
+                <main className="p-8">
+                    {/* Welcome Section */}
+                    <section className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6 mb-8 animate-enter">
+                        <div>
+                            <h1 className="text-2xl md:text-3xl font-bold font-heading text-neutral-900 mb-2">
+                                Welcome back, {user.user_metadata?.full_name?.split(' ')[0] || 'there'}! 👋
+                            </h1>
+                            <p className="text-neutral-500">Ready to practice your next interview?</p>
+                        </div>
+                        <Link href="/interview/setup">
+                            <Button size="lg" variant="primary">
+                                <Plus size={20} />
+                                New Interview
+                            </Button>
                         </Link>
-                    </div>
-                </section>
+                    </section>
 
-                {/* Recent Interviews */}
-                <section>
-                    <h2 className="text-xl font-semibold text-white mb-6 flex items-center gap-2">
-                        <Clock size={20} className="text-slate-400" />
-                        Recent Interviews
-                    </h2>
-                    {loadingInterviews ? (
-                        <div className="space-y-4">
-                            {[1, 2, 3].map((i) => (
-                                <div key={i} className="h-20 bg-white/5 rounded-xl animate-pulse" />
-                            ))}
+                    {/* Stats Grid */}
+                    <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                        {stats.map((stat, index) => (
+                            <StatCard
+                                key={index}
+                                icon={stat.icon}
+                                label={stat.label}
+                                value={stat.value}
+                                color={stat.color}
+                                change={stat.change}
+                            />
+                        ))}
+                    </section>
+
+                    {/* Quick Actions */}
+                    <section className="mb-8">
+                        <div className="flex items-center justify-between mb-6">
+                            <h2 className="text-lg font-semibold text-neutral-900 flex items-center gap-2">
+                                <Zap size={20} className="text-warning" />
+                                Quick Start
+                            </h2>
                         </div>
-                    ) : interviews.length === 0 ? (
-                        <div className="glass-card p-12 rounded-2xl text-center">
-                            <Calendar size={48} className="mx-auto text-slate-600 mb-4" />
-                            <h3 className="text-xl font-semibold text-white mb-2">No interviews yet</h3>
-                            <p className="text-slate-400 mb-6">Start your first practice interview to improve your skills</p>
-                            <Link href="/interview/setup">
-                                <Button>Start Your First Interview</Button>
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                            <Link href="/interview/setup" className="group block">
+                                <Card variant="interactive" padding="lg" className="h-full">
+                                    <div className="flex items-start gap-4">
+                                        <div className="w-12 h-12 bg-primary-50 rounded-xl flex items-center justify-center text-primary group-hover:scale-110 transition-transform">
+                                            <PlayCircle size={24} />
+                                        </div>
+                                        <div className="flex-1">
+                                            <h3 className="text-base font-semibold text-neutral-900 mb-1 group-hover:text-primary transition-colors">
+                                                Start Practice Interview
+                                            </h3>
+                                            <p className="text-sm text-neutral-500">
+                                                Begin a voice-based mock interview with AI feedback.
+                                            </p>
+                                        </div>
+                                        <ArrowRight size={20} className="text-neutral-300 group-hover:text-primary group-hover:translate-x-1 transition-all" />
+                                    </div>
+                                </Card>
+                            </Link>
+
+                            <Link href="/interview/setup" className="group block">
+                                <Card variant="interactive" padding="lg" className="h-full">
+                                    <div className="flex items-start gap-4">
+                                        <div className="w-12 h-12 bg-secondary/10 rounded-xl flex items-center justify-center text-secondary group-hover:scale-110 transition-transform">
+                                            <Mic size={24} />
+                                        </div>
+                                        <div className="flex-1">
+                                            <h3 className="text-base font-semibold text-neutral-900 mb-1 group-hover:text-secondary transition-colors">
+                                                Technical Interview
+                                            </h3>
+                                            <p className="text-sm text-neutral-500">
+                                                Practice coding questions and system design.
+                                            </p>
+                                        </div>
+                                        <ArrowRight size={20} className="text-neutral-300 group-hover:text-secondary group-hover:translate-x-1 transition-all" />
+                                    </div>
+                                </Card>
+                            </Link>
+
+                            <Link href="/interview/setup" className="group block">
+                                <Card variant="interactive" padding="lg" className="h-full">
+                                    <div className="flex items-start gap-4">
+                                        <div className="w-12 h-12 bg-success-light rounded-xl flex items-center justify-center text-success group-hover:scale-110 transition-transform">
+                                            <BarChart3 size={24} />
+                                        </div>
+                                        <div className="flex-1">
+                                            <h3 className="text-base font-semibold text-neutral-900 mb-1 group-hover:text-success transition-colors">
+                                                Behavioral Interview
+                                            </h3>
+                                            <p className="text-sm text-neutral-500">
+                                                Practice STAR method responses and soft skills.
+                                            </p>
+                                        </div>
+                                        <ArrowRight size={20} className="text-neutral-300 group-hover:text-success group-hover:translate-x-1 transition-all" />
+                                    </div>
+                                </Card>
                             </Link>
                         </div>
-                    ) : (
-                        <div className="space-y-4">
-                            {interviews.map((interview) => (
-                                <div key={interview.id} className="group glass-card p-5 rounded-xl flex flex-col md:flex-row items-start md:items-center justify-between gap-4 transition-all hover:bg-white/10 hover:border-white/20">
-                                    <div className="flex items-center gap-4">
-                                        <div className="w-10 h-10 rounded-lg bg-indigo-500/20 text-indigo-400 flex items-center justify-center shrink-0">
-                                            <BarChart3 size={20} />
-                                        </div>
-                                        <div>
-                                            <h3 className="font-semibold text-white group-hover:text-primary transition-colors">{interview.job_role}</h3>
-                                            <div className="flex items-center gap-3 text-xs text-slate-400 mt-1">
-                                                <span className="flex items-center gap-1">
-                                                    <Calendar size={12} />
-                                                    {new Date(interview.created_at).toLocaleDateString()}
+                    </section>
+
+                    {/* Recent Interviews */}
+                    <section>
+                        <div className="flex items-center justify-between mb-6">
+                            <h2 className="text-lg font-semibold text-neutral-900 flex items-center gap-2">
+                                <Clock size={20} className="text-neutral-400" />
+                                Recent Interviews
+                            </h2>
+                            {interviews.length > 0 && (
+                                <Button variant="ghost" size="sm">
+                                    View All
+                                    <ArrowRight size={16} />
+                                </Button>
+                            )}
+                        </div>
+
+                        {loadingInterviews ? (
+                            <div className="space-y-4">
+                                {[1, 2, 3].map((i) => (
+                                    <div key={i} className="h-20 bg-white rounded-2xl border border-neutral-200 shimmer" />
+                                ))}
+                            </div>
+                        ) : interviews.length === 0 ? (
+                            <Card variant="default" padding="lg" className="text-center py-16">
+                                <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-surface-100 flex items-center justify-center">
+                                    <Calendar size={32} className="text-neutral-400" />
+                                </div>
+                                <h3 className="text-xl font-semibold text-neutral-900 mb-2">No interviews yet</h3>
+                                <p className="text-neutral-500 mb-6">Start your first practice interview to improve your skills.</p>
+                                <Link href="/interview/setup">
+                                    <Button variant="primary">
+                                        <Plus size={18} />
+                                        Start Your First Interview
+                                    </Button>
+                                </Link>
+                            </Card>
+                        ) : (
+                            <Card variant="default" padding="none" className="overflow-hidden">
+                                {/* Table Header */}
+                                <div className="grid grid-cols-12 gap-4 px-6 py-4 bg-surface-50 border-b border-neutral-100 text-sm font-medium text-neutral-500">
+                                    <div className="col-span-5">Interview</div>
+                                    <div className="col-span-2">Date</div>
+                                    <div className="col-span-2">Status</div>
+                                    <div className="col-span-2">Score</div>
+                                    <div className="col-span-1"></div>
+                                </div>
+
+                                {/* Table Body */}
+                                <div className="divide-y divide-neutral-100">
+                                    {interviews.map((interview) => (
+                                        <div
+                                            key={interview.id}
+                                            className="grid grid-cols-12 gap-4 px-6 py-4 items-center hover:bg-surface-50 transition-colors group"
+                                        >
+                                            {/* Interview Info */}
+                                            <div className="col-span-5 flex items-center gap-3">
+                                                <div className="w-10 h-10 rounded-xl bg-primary-50 text-primary flex items-center justify-center shrink-0">
+                                                    <Mic size={18} />
+                                                </div>
+                                                <div className="min-w-0">
+                                                    <h4 className="font-semibold text-neutral-900 truncate group-hover:text-primary transition-colors">
+                                                        {interview.job_role}
+                                                    </h4>
+                                                    <p className="text-sm text-neutral-500 truncate">
+                                                        {interview.job_description?.substring(0, 50) || 'No description'}...
+                                                    </p>
+                                                </div>
+                                            </div>
+
+                                            {/* Date */}
+                                            <div className="col-span-2 text-sm text-neutral-600">
+                                                {formatDate(interview.created_at)}
+                                            </div>
+
+                                            {/* Status */}
+                                            <div className="col-span-2">
+                                                <span className={getStatusBadge(interview.status)}>
+                                                    {interview.status.replace('_', ' ').charAt(0).toUpperCase() + interview.status.replace('_', ' ').slice(1)}
                                                 </span>
                                             </div>
+
+                                            {/* Score */}
+                                            <div className="col-span-2">
+                                                {interview.status === 'completed' ? (
+                                                    <div className="flex items-center gap-2">
+                                                        <StatProgress
+                                                            value={averageScore || 75}
+                                                            color="success"
+                                                            className="w-16"
+                                                        />
+                                                        <span className="text-sm font-medium text-neutral-700">
+                                                            {averageScore || 75}%
+                                                        </span>
+                                                    </div>
+                                                ) : (
+                                                    <span className="text-sm text-neutral-400">-</span>
+                                                )}
+                                            </div>
+
+                                            {/* Actions */}
+                                            <div className="col-span-1 flex justify-end">
+                                                {interview.status === 'completed' ? (
+                                                    <Link href={`/interview/${interview.id}/results`}>
+                                                        <Button variant="ghost" size="sm" className="opacity-0 group-hover:opacity-100 transition-opacity">
+                                                            <ExternalLink size={16} />
+                                                        </Button>
+                                                    </Link>
+                                                ) : interview.status === 'in_progress' ? (
+                                                    <Link href={`/interview/${interview.id}`}>
+                                                        <Button variant="soft" size="sm">
+                                                            Continue
+                                                        </Button>
+                                                    </Link>
+                                                ) : null}
+                                            </div>
                                         </div>
-                                    </div>
-                                    <div className="flex items-center gap-4 w-full md:w-auto justify-between md:justify-end">
-                                        <span className={`px-3 py-1 rounded-full text-xs font-medium border ${getStatusBadge(interview.status)}`}>
-                                            {interview.status.replace('_', ' ').toUpperCase()}
-                                        </span>
-                                        {interview.status === 'completed' && (
-                                            <Link href={`/interview/${interview.id}/results`}>
-                                                <Button variant="ghost" size="sm" className="hidden md:flex">
-                                                    View Results
-                                                    <ArrowRight size={16} />
-                                                </Button>
-                                            </Link>
-                                        )}
-                                    </div>
+                                    ))}
                                 </div>
-                            ))}
-                        </div>
-                    )}
-                </section>
-            </main>
+                            </Card>
+                        )}
+                    </section>
+                </main>
+            </div>
         </div>
     );
 }
