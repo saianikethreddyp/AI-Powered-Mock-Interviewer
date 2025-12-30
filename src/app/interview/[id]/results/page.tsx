@@ -25,7 +25,11 @@ import {
     RotateCcw,
     Home,
     Sparkles,
-    BarChart3
+    BarChart3,
+    FileText,
+    Copy,
+    Facebook,
+    Twitter
 } from 'lucide-react';
 
 export default function ResultsPage({ params }: { params: Promise<{ id: string }> }) {
@@ -37,6 +41,8 @@ export default function ResultsPage({ params }: { params: Promise<{ id: string }
     const [analysis, setAnalysis] = useState<InterviewAnalysis | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
+    const [activeTab, setActiveTab] = useState<'analysis' | 'transcript'>('analysis');
+    const [showShareModal, setShowShareModal] = useState(false);
 
     useEffect(() => {
         let isMounted = true;
@@ -103,6 +109,18 @@ export default function ResultsPage({ params }: { params: Promise<{ id: string }
             if (pollInterval) clearInterval(pollInterval);
         };
     }, [id, interview]);
+
+    const handleShare = () => {
+        setShowShareModal(true);
+    };
+
+    const copyToClipboard = () => {
+        const textToShare = `I just scored ${analysis?.overall_score}/100 in my AI Mock Interview for ${interview?.job_role}! Practice with AI Interviewer today.`;
+        navigator.clipboard.writeText(textToShare);
+        // Could show a toast here
+        alert('Copied to clipboard!');
+        setShowShareModal(false);
+    };
 
     if (authLoading || loading) {
         return (
@@ -179,8 +197,52 @@ export default function ResultsPage({ params }: { params: Promise<{ id: string }
         { key: 'relevantExperience', label: 'Relevant Experience', icon: <Award size={18} /> },
     ];
 
+    // Mock transcript data if we don't have it in the DB yet
+    // In a real implementation this would come from interview.transcript
+    const transcriptData = [
+        { role: 'ai', content: `Hello! I'm your AI interviewer. I understand you're applying for the ${interview.job_role} position. Can you start by telling me a little about yourself?` },
+        { role: 'user', content: "Sure. I'm a software engineer with about 4 years of experience..." },
+        { role: 'ai', content: "That's great. Can you describe a challenging technical problem you've solved recently?" },
+    ];
+
     return (
-        <div className="min-h-screen bg-surface-50 text-neutral-900 font-sans">
+        <div className="min-h-screen bg-surface-50 text-neutral-900 font-sans relative">
+
+            {/* Share Modal */}
+            {showShareModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-in fade-in">
+                    <Card variant="default" padding="lg" className="w-full max-w-md shadow-2xl relative">
+                        <button
+                            onClick={() => setShowShareModal(false)}
+                            className="absolute top-4 right-4 text-neutral-400 hover:text-neutral-900 transition-colors"
+                        >
+                            &times;
+                        </button>
+                        <h3 className="text-xl font-bold text-neutral-900 mb-4">Share Your Result</h3>
+
+                        <div className="bg-surface-50 p-6 rounded-xl border border-neutral-100 flex flex-col items-center text-center mb-6">
+                            <div className="w-20 h-20 relative mb-3">
+                                <ProgressRing value={displayAnalysis.overall_score} size="lg" color="success" />
+                            </div>
+                            <h4 className="font-bold text-lg text-neutral-900">{interview.job_role}</h4>
+                            <p className="text-sm text-neutral-500">AI Mock Interview Result</p>
+                        </div>
+
+                        <div className="space-y-3">
+                            <Button
+                                fullWidth
+                                variant="primary"
+                                onClick={copyToClipboard}
+                                className="flex items-center justify-center gap-2"
+                            >
+                                <Copy size={18} />
+                                Copy Link & Text
+                            </Button>
+                        </div>
+                    </Card>
+                </div>
+            )}
+
             {/* Sidebar */}
             <Sidebar />
 
@@ -194,11 +256,11 @@ export default function ResultsPage({ params }: { params: Promise<{ id: string }
                             Back to Dashboard
                         </Link>
                         <div className="flex gap-3">
-                            <Button variant="ghost" size="sm" className="hidden sm:flex">
+                            <Button variant="ghost" size="sm" onClick={handleShare}>
                                 <Share2 size={16} />
                                 Share
                             </Button>
-                            <Button variant="ghost" size="sm" className="hidden sm:flex">
+                            <Button variant="ghost" size="sm">
                                 <Download size={16} />
                                 Export
                             </Button>
@@ -208,7 +270,7 @@ export default function ResultsPage({ params }: { params: Promise<{ id: string }
 
                 <main className="p-8 max-w-6xl mx-auto space-y-8 animate-enter">
                     {/* Title Section */}
-                    <div className="flex items-start justify-between">
+                    <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
                         <div>
                             <div className="flex items-center gap-3 mb-2">
                                 <h1 className="text-3xl font-bold font-heading text-neutral-900">Result Analysis</h1>
@@ -223,7 +285,7 @@ export default function ResultsPage({ params }: { params: Promise<{ id: string }
                                 })}
                             </p>
                         </div>
-                        <div className="text-right hidden md:block">
+                        <div className="flex items-center gap-3">
                             <Link href="/interview/setup">
                                 <Button variant="primary">
                                     <RotateCcw size={18} />
@@ -233,150 +295,208 @@ export default function ResultsPage({ params }: { params: Promise<{ id: string }
                         </div>
                     </div>
 
-                    {/* Overall Score Card */}
-                    <Card variant="default" padding="xl" className="relative overflow-hidden">
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-10 items-center relative z-10">
-                            {/* Score Circle */}
-                            <div className="flex flex-col items-center justify-center">
-                                <ProgressRing
-                                    value={displayAnalysis.overall_score}
-                                    size="xl"
-                                    color={getScoreVariant(displayAnalysis.overall_score)}
-                                />
-                                <div className="mt-4 text-center">
-                                    <span className="text-sm font-medium text-neutral-500 uppercase tracking-widest">Overall Score</span>
-                                </div>
-                            </div>
-
-                            {/* Recommendation & Summary */}
-                            <div className="md:col-span-2 space-y-6">
-                                <div>
-                                    <h2 className="text-2xl font-bold text-neutral-900 mb-2">
-                                        {!analysis ? 'Analyzing Interview...' : 'Performance Summary'}
-                                    </h2>
-                                    {!analysis ? (
-                                        <p className="text-neutral-500 animate-pulse">
-                                            Generating detailed feedback... (~10s)
-                                        </p>
-                                    ) : (
-                                        <div className="flex items-center gap-4 mb-4">
-                                            <span className={`px-4 py-1.5 rounded-lg border text-sm font-bold uppercase tracking-wider ${getRecommendationColor(displayAnalysis.hiring_recommendation)}`}>
-                                                {displayAnalysis.hiring_recommendation}
-                                            </span>
-                                        </div>
-                                    )}
-                                    <p className="text-neutral-600 leading-relaxed text-lg">
-                                        {!analysis
-                                            ? "Our AI represents your conversation and generates detailed feedback. "
-                                            : displayAnalysis.hiring_recommendation === 'Strong Hire'
-                                                ? "Excellent work! You demonstrated strong capability across key areas. Your responses were clear, structured, and showed great depth."
-                                                : displayAnalysis.hiring_recommendation === 'Hire'
-                                                    ? "Great job. You showed solid skills and good communication, though there are a few specific areas where you could be more concise."
-                                                    : "Good effort. Focus on the improvement areas highlighted below to reach the next level in your interview performance."}
-                                    </p>
-                                </div>
-                            </div>
-                        </div>
-                    </Card>
-
-                    {/* Category Scores Grid */}
-                    <section>
-                        <h3 className="text-lg font-bold text-neutral-900 mb-4 flex items-center gap-2">
-                            <BarChart3 size={20} className="text-primary" />
-                            Category Breakdown
-                        </h3>
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                            {categories.map((cat) => {
-                                const score = displayAnalysis.category_scores?.[cat.key as keyof typeof displayAnalysis.category_scores] || 0;
-                                return (
-                                    <Card key={cat.key} variant="default" padding="md" className="group hover:border-primary/30 transition-colors">
-                                        <div className="flex items-center justify-between mb-3">
-                                            <div className="flex items-center gap-3">
-                                                <div className="w-8 h-8 rounded-lg bg-surface-100 flex items-center justify-center text-neutral-500 group-hover:text-primary transition-colors">
-                                                    {cat.icon}
-                                                </div>
-                                                <span className="font-medium text-neutral-700">{cat.label}</span>
-                                            </div>
-                                            <span className="font-bold text-neutral-900">{score}%</span>
-                                        </div>
-                                        <StatProgress
-                                            value={score}
-                                            color={getScoreVariant(score)}
-                                            className="h-2"
-                                        />
-                                    </Card>
-                                );
-                            })}
-                        </div>
-                    </section>
-
-                    {/* Detailed Analysis */}
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                        {/* Strengths */}
-                        <Card variant="default" padding="lg">
-                            <div className="flex items-center gap-3 mb-6">
-                                <div className="w-10 h-10 rounded-xl bg-success-light flex items-center justify-center text-success">
-                                    <TrendingUp size={20} />
-                                </div>
-                                <h3 className="text-lg font-bold text-neutral-900">Key Strengths</h3>
-                            </div>
-                            <ul className="space-y-4">
-                                {displayAnalysis.strengths?.map((strength: string, i: number) => (
-                                    <li key={i} className="flex items-start gap-3">
-                                        <CheckCircle size={18} className="text-success shrink-0 mt-0.5" />
-                                        <span className="text-neutral-600">{strength}</span>
-                                    </li>
-                                ))}
-                            </ul>
-                        </Card>
-
-                        {/* Improvements */}
-                        <Card variant="default" padding="lg">
-                            <div className="flex items-center gap-3 mb-6">
-                                <div className="w-10 h-10 rounded-xl bg-danger-light flex items-center justify-center text-danger">
-                                    <TrendingDown size={20} />
-                                </div>
-                                <h3 className="text-lg font-bold text-neutral-900">Areas for Improvement</h3>
-                            </div>
-                            <ul className="space-y-4">
-                                {displayAnalysis.areas_for_improvement?.map((area: string, i: number) => (
-                                    <li key={i} className="flex items-start gap-3">
-                                        <AlertCircle size={18} className="text-danger shrink-0 mt-0.5" />
-                                        <span className="text-neutral-600">{area}</span>
-                                    </li>
-                                ))}
-                            </ul>
-                        </Card>
+                    {/* Tabs */}
+                    <div className="flex border-b border-neutral-200">
+                        <button
+                            onClick={() => setActiveTab('analysis')}
+                            className={`px-6 py-3 font-medium text-sm transition-colors border-b-2
+                                ${activeTab === 'analysis'
+                                    ? 'border-primary text-primary'
+                                    : 'border-transparent text-neutral-500 hover:text-neutral-900'
+                                }`}
+                        >
+                            <span className="flex items-center gap-2">
+                                <BarChart3 size={18} />
+                                Analysis
+                            </span>
+                        </button>
+                        <button
+                            onClick={() => setActiveTab('transcript')}
+                            className={`px-6 py-3 font-medium text-sm transition-colors border-b-2
+                                ${activeTab === 'transcript'
+                                    ? 'border-primary text-primary'
+                                    : 'border-transparent text-neutral-500 hover:text-neutral-900'
+                                }`}
+                        >
+                            <span className="flex items-center gap-2">
+                                <FileText size={18} />
+                                Transcript
+                            </span>
+                        </button>
                     </div>
 
-                    {/* AI Feedback */}
-                    <Card variant="default" padding="lg" className="border-l-4 border-l-primary">
-                        <div className="flex items-center gap-3 mb-4">
-                            <Sparkles size={20} className="text-primary" />
-                            <h3 className="text-lg font-bold text-neutral-900">AI Interviewer Feedback</h3>
-                        </div>
-                        <p className="text-neutral-600 leading-relaxed whitespace-pre-wrap">
-                            {displayAnalysis.detailed_feedback}
-                        </p>
-                    </Card>
-
-                    {/* Tips */}
-                    {displayAnalysis.interview_tips && displayAnalysis.interview_tips.length > 0 && (
-                        <div className="mb-12">
-                            <h3 className="text-lg font-bold text-neutral-900 mb-4 flex items-center gap-2">
-                                <Lightbulb size={20} className="text-warning" />
-                                Tips for Next Time
-                            </h3>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                {displayAnalysis.interview_tips.map((tip: string, i: number) => (
-                                    <div key={i} className="bg-white p-5 rounded-xl border border-neutral-200 shadow-sm flex gap-4">
-                                        <span className="flex items-center justify-center w-6 h-6 rounded-full bg-warning-light text-warning-dark text-xs font-bold shrink-0">
-                                            {i + 1}
-                                        </span>
-                                        <span className="text-neutral-600 text-sm font-medium">{tip}</span>
+                    {/* Check Active Tab */}
+                    {activeTab === 'analysis' ? (
+                        <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                            {/* Overall Score Card */}
+                            <Card variant="default" padding="xl" className="relative overflow-hidden">
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-10 items-center relative z-10">
+                                    {/* Score Circle */}
+                                    <div className="flex flex-col items-center justify-center">
+                                        <ProgressRing
+                                            value={displayAnalysis.overall_score}
+                                            size="xl"
+                                            color={getScoreVariant(displayAnalysis.overall_score)}
+                                        />
+                                        <div className="mt-4 text-center">
+                                            <span className="text-sm font-medium text-neutral-500 uppercase tracking-widest">Overall Score</span>
+                                        </div>
                                     </div>
-                                ))}
+
+                                    {/* Recommendation & Summary */}
+                                    <div className="md:col-span-2 space-y-6">
+                                        <div>
+                                            <h2 className="text-2xl font-bold text-neutral-900 mb-2">
+                                                {!analysis ? 'Analyzing Interview...' : 'Performance Summary'}
+                                            </h2>
+                                            {!analysis ? (
+                                                <p className="text-neutral-500 animate-pulse">
+                                                    Generating detailed feedback... (~10s)
+                                                </p>
+                                            ) : (
+                                                <div className="flex items-center gap-4 mb-4">
+                                                    <span className={`px-4 py-1.5 rounded-lg border text-sm font-bold uppercase tracking-wider ${getRecommendationColor(displayAnalysis.hiring_recommendation)}`}>
+                                                        {displayAnalysis.hiring_recommendation}
+                                                    </span>
+                                                </div>
+                                            )}
+                                            <p className="text-neutral-600 leading-relaxed text-lg">
+                                                {!analysis
+                                                    ? "Our AI represents your conversation and generates detailed feedback. "
+                                                    : displayAnalysis.hiring_recommendation === 'Strong Hire'
+                                                        ? "Excellent work! You demonstrated strong capability across key areas. Your responses were clear, structured, and showed great depth."
+                                                        : displayAnalysis.hiring_recommendation === 'Hire'
+                                                            ? "Great job. You showed solid skills and good communication, though there are a few specific areas where you could be more concise."
+                                                            : "Good effort. Focus on the improvement areas highlighted below to reach the next level in your interview performance."}
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </Card>
+
+                            {/* Category Scores Grid */}
+                            <section>
+                                <h3 className="text-lg font-bold text-neutral-900 mb-4 flex items-center gap-2">
+                                    <BarChart3 size={20} className="text-primary" />
+                                    Category Breakdown
+                                </h3>
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                    {categories.map((cat) => {
+                                        const score = displayAnalysis.category_scores?.[cat.key as keyof typeof displayAnalysis.category_scores] || 0;
+                                        return (
+                                            <Card key={cat.key} variant="default" padding="md" className="group hover:border-primary/30 transition-colors">
+                                                <div className="flex items-center justify-between mb-3">
+                                                    <div className="flex items-center gap-3">
+                                                        <div className="w-8 h-8 rounded-lg bg-surface-100 flex items-center justify-center text-neutral-500 group-hover:text-primary transition-colors">
+                                                            {cat.icon}
+                                                        </div>
+                                                        <span className="font-medium text-neutral-700">{cat.label}</span>
+                                                    </div>
+                                                    <span className="font-bold text-neutral-900">{score}%</span>
+                                                </div>
+                                                <StatProgress
+                                                    value={score}
+                                                    color={getScoreVariant(score)}
+                                                    className="h-2"
+                                                />
+                                            </Card>
+                                        );
+                                    })}
+                                </div>
+                            </section>
+
+                            {/* Detailed Analysis */}
+                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                                {/* Strengths */}
+                                <Card variant="default" padding="lg">
+                                    <div className="flex items-center gap-3 mb-6">
+                                        <div className="w-10 h-10 rounded-xl bg-success-light flex items-center justify-center text-success">
+                                            <TrendingUp size={20} />
+                                        </div>
+                                        <h3 className="text-lg font-bold text-neutral-900">Key Strengths</h3>
+                                    </div>
+                                    <ul className="space-y-4">
+                                        {displayAnalysis.strengths?.map((strength: string, i: number) => (
+                                            <li key={i} className="flex items-start gap-3">
+                                                <CheckCircle size={18} className="text-success shrink-0 mt-0.5" />
+                                                <span className="text-neutral-600">{strength}</span>
+                                            </li>
+                                        ))}
+                                    </ul>
+                                </Card>
+
+                                {/* Improvements */}
+                                <Card variant="default" padding="lg">
+                                    <div className="flex items-center gap-3 mb-6">
+                                        <div className="w-10 h-10 rounded-xl bg-danger-light flex items-center justify-center text-danger">
+                                            <TrendingDown size={20} />
+                                        </div>
+                                        <h3 className="text-lg font-bold text-neutral-900">Areas for Improvement</h3>
+                                    </div>
+                                    <ul className="space-y-4">
+                                        {displayAnalysis.areas_for_improvement?.map((area: string, i: number) => (
+                                            <li key={i} className="flex items-start gap-3">
+                                                <AlertCircle size={18} className="text-danger shrink-0 mt-0.5" />
+                                                <span className="text-neutral-600">{area}</span>
+                                            </li>
+                                        ))}
+                                    </ul>
+                                </Card>
                             </div>
+
+                            {/* AI Feedback */}
+                            <Card variant="default" padding="lg" className="border-l-4 border-l-primary">
+                                <div className="flex items-center gap-3 mb-4">
+                                    <Sparkles size={20} className="text-primary" />
+                                    <h3 className="text-lg font-bold text-neutral-900">AI Interviewer Feedback</h3>
+                                </div>
+                                <p className="text-neutral-600 leading-relaxed whitespace-pre-wrap">
+                                    {displayAnalysis.detailed_feedback}
+                                </p>
+                            </Card>
+
+                            {/* Tips */}
+                            {displayAnalysis.interview_tips && displayAnalysis.interview_tips.length > 0 && (
+                                <div className="mb-12">
+                                    <h3 className="text-lg font-bold text-neutral-900 mb-4 flex items-center gap-2">
+                                        <Lightbulb size={20} className="text-warning" />
+                                        Tips for Next Time
+                                    </h3>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        {displayAnalysis.interview_tips.map((tip: string, i: number) => (
+                                            <div key={i} className="bg-white p-5 rounded-xl border border-neutral-200 shadow-sm flex gap-4">
+                                                <span className="flex items-center justify-center w-6 h-6 rounded-full bg-warning-light text-warning-dark text-xs font-bold shrink-0">
+                                                    {i + 1}
+                                                </span>
+                                                <span className="text-neutral-600 text-sm font-medium">{tip}</span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    ) : (
+                        <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                            <Card variant="default" padding="lg">
+                                <div className="space-y-8">
+                                    {transcriptData.map((msg, i) => (
+                                        <div key={i} className={`flex gap-4 ${msg.role === 'user' ? 'flex-row-reverse' : ''}`}>
+                                            <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 
+                                                ${msg.role === 'ai' ? 'bg-primary-50 text-primary' : 'bg-surface-200 text-neutral-600'}`
+                                            }>
+                                                {msg.role === 'ai' ? <Sparkles size={18} /> : <span>You</span>}
+                                            </div>
+                                            <div className={`max-w-[80%] rounded-2xl p-4 
+                                                ${msg.role === 'user'
+                                                    ? 'bg-primary text-white'
+                                                    : 'bg-surface-50 text-neutral-800'}`
+                                            }>
+                                                <p className="whitespace-pre-wrap leading-relaxed">{msg.content}</p>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </Card>
                         </div>
                     )}
                 </main>

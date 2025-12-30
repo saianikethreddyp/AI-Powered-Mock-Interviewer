@@ -12,6 +12,17 @@ import { Avatar } from '@/components/ui/Avatar';
 import { StatProgress } from '@/components/ui/ProgressRing';
 import { Interview } from '@/types';
 import {
+    LineChart,
+    Line,
+    XAxis,
+    YAxis,
+    CartesianGrid,
+    Tooltip,
+    ResponsiveContainer,
+    AreaChart,
+    Area
+} from 'recharts';
+import {
     Plus,
     Sparkles,
     LogOut,
@@ -38,6 +49,7 @@ export default function DashboardPage() {
     const [interviews, setInterviews] = useState<Interview[]>([]);
     const [loadingInterviews, setLoadingInterviews] = useState(true);
     const [averageScore, setAverageScore] = useState<number>(0);
+    const [chartData, setChartData] = useState<any[]>([]);
 
     useEffect(() => {
         if (!loading && !user) {
@@ -66,7 +78,7 @@ export default function DashboardPage() {
     }, [user]);
 
     useEffect(() => {
-        const fetchAverageScore = async () => {
+        const fetchAnalytics = async () => {
             if (!user || interviews.length === 0) return;
 
             const completedIds = interviews
@@ -78,18 +90,28 @@ export default function DashboardPage() {
             try {
                 const { data, error } = await supabase
                     .from('analysis')
-                    .select('overall_score')
-                    .in('interview_id', completedIds);
+                    .select('interview_id, overall_score, created_at')
+                    .in('interview_id', completedIds)
+                    .order('created_at', { ascending: true });
 
                 if (!error && data && data.length > 0) {
+                    // Calc average
                     const totalScore = data.reduce((sum, a) => sum + (a.overall_score || 0), 0);
                     setAverageScore(Math.round(totalScore / data.length));
+
+                    // Prep chart data
+                    const formattedChartData = data.map((item, index) => ({
+                        name: `Interview ${index + 1}`,
+                        score: item.overall_score,
+                        date: new Date(item.created_at).toLocaleDateString(),
+                    }));
+                    setChartData(formattedChartData);
                 }
             } catch (err) {
-                console.error('Error fetching average score:', err);
+                console.error('Error fetching analytics:', err);
             }
         };
-        fetchAverageScore();
+        fetchAnalytics();
     }, [user, interviews]);
 
     const handleSignOut = async () => {
@@ -119,7 +141,7 @@ export default function DashboardPage() {
             label: 'Total Interviews',
             value: interviews.length,
             color: 'primary' as const,
-            change: interviews.length > 0 ? { value: 12, type: 'increase' as const } : undefined
+            change: interviews.length > 0 ? { value: interviews.length, type: 'increase' as const } : undefined
         },
         {
             icon: <CheckCircle size={24} />,
@@ -136,7 +158,7 @@ export default function DashboardPage() {
         {
             icon: <Award size={24} />,
             label: 'Best Score',
-            value: averageScore > 0 ? `${Math.min(averageScore + 8, 100)}%` : '-',
+            value: chartData.length > 0 ? `${Math.max(...chartData.map(d => d.score))}%` : '-',
             color: 'success' as const
         },
     ];
@@ -158,6 +180,8 @@ export default function DashboardPage() {
             year: 'numeric'
         });
     };
+
+    const ChartData = chartData;
 
     return (
         <div className="min-h-screen bg-surface-50 text-neutral-900 font-sans">
@@ -229,19 +253,76 @@ export default function DashboardPage() {
                         </Link>
                     </section>
 
-                    {/* Stats Grid */}
-                    <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-                        {stats.map((stat, index) => (
-                            <StatCard
-                                key={index}
-                                icon={stat.icon}
-                                label={stat.label}
-                                value={stat.value}
-                                color={stat.color}
-                                change={stat.change}
-                            />
-                        ))}
-                    </section>
+                    {/* Charts & Stats Row */}
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8">
+                        {/* Stats Grid */}
+                        <div className="lg:col-span-1 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-1 gap-6">
+                            {stats.map((stat, index) => (
+                                <StatCard
+                                    key={index}
+                                    icon={stat.icon}
+                                    label={stat.label}
+                                    value={stat.value}
+                                    color={stat.color}
+                                    change={stat.change}
+                                />
+                            ))}
+                        </div>
+
+                        {/* Chart */}
+                        <Card variant="default" padding="lg" className="lg:col-span-2 min-h-[400px]">
+                            <div className="flex items-center justify-between mb-6">
+                                <h2 className="text-lg font-bold text-neutral-900">Performance Trend</h2>
+                                <select className="text-sm border-none bg-surface-100 rounded-lg px-3 py-1 font-medium text-neutral-600 focus:ring-0">
+                                    <option>Last 7 Days</option>
+                                    <option>Last Month</option>
+                                </select>
+                            </div>
+                            {ChartData.length > 0 ? (
+                                <div className="h-[300px] w-full">
+                                    <ResponsiveContainer width="100%" height="100%">
+                                        <AreaChart data={ChartData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
+                                            <defs>
+                                                <linearGradient id="colorScore" x1="0" y1="0" x2="0" y2="1">
+                                                    <stop offset="5%" stopColor="#e11d48" stopOpacity={0.2} />
+                                                    <stop offset="95%" stopColor="#e11d48" stopOpacity={0} />
+                                                </linearGradient>
+                                            </defs>
+                                            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E5E5E5" />
+                                            <XAxis
+                                                dataKey="date"
+                                                axisLine={false}
+                                                tickLine={false}
+                                                tick={{ fill: '#737373', fontSize: 12 }}
+                                                dy={10}
+                                            />
+                                            <YAxis
+                                                axisLine={false}
+                                                tickLine={false}
+                                                tick={{ fill: '#737373', fontSize: 12 }}
+                                            />
+                                            <Tooltip
+                                                contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
+                                            />
+                                            <Area
+                                                type="monotone"
+                                                dataKey="score"
+                                                stroke="#e11d48"
+                                                strokeWidth={3}
+                                                fillOpacity={1}
+                                                fill="url(#colorScore)"
+                                            />
+                                        </AreaChart>
+                                    </ResponsiveContainer>
+                                </div>
+                            ) : (
+                                <div className="h-[300px] flex flex-col items-center justify-center text-neutral-400">
+                                    <BarChart3 size={48} className="mb-4 opacity-20" />
+                                    <p>Complete interviews to see your progress trend</p>
+                                </div>
+                            )}
+                        </Card>
+                    </div>
 
                     {/* Quick Actions */}
                     <section className="mb-8">
@@ -260,10 +341,10 @@ export default function DashboardPage() {
                                         </div>
                                         <div className="flex-1">
                                             <h3 className="text-base font-semibold text-neutral-900 mb-1 group-hover:text-primary transition-colors">
-                                                Start Practice Interview
+                                                Mock Interview
                                             </h3>
                                             <p className="text-sm text-neutral-500">
-                                                Begin a voice-based mock interview with AI feedback.
+                                                Simulate a real interview environment.
                                             </p>
                                         </div>
                                         <ArrowRight size={20} className="text-neutral-300 group-hover:text-primary group-hover:translate-x-1 transition-all" />
@@ -279,10 +360,10 @@ export default function DashboardPage() {
                                         </div>
                                         <div className="flex-1">
                                             <h3 className="text-base font-semibold text-neutral-900 mb-1 group-hover:text-secondary transition-colors">
-                                                Technical Interview
+                                                Technical Deep-Dive
                                             </h3>
                                             <p className="text-sm text-neutral-500">
-                                                Practice coding questions and system design.
+                                                Focus on system design and coding.
                                             </p>
                                         </div>
                                         <ArrowRight size={20} className="text-neutral-300 group-hover:text-secondary group-hover:translate-x-1 transition-all" />
@@ -298,10 +379,10 @@ export default function DashboardPage() {
                                         </div>
                                         <div className="flex-1">
                                             <h3 className="text-base font-semibold text-neutral-900 mb-1 group-hover:text-success transition-colors">
-                                                Behavioral Interview
+                                                Behavioral Check
                                             </h3>
                                             <p className="text-sm text-neutral-500">
-                                                Practice STAR method responses and soft skills.
+                                                Refine your soft skills and culture fit.
                                             </p>
                                         </div>
                                         <ArrowRight size={20} className="text-neutral-300 group-hover:text-success group-hover:translate-x-1 transition-all" />
@@ -350,11 +431,11 @@ export default function DashboardPage() {
                             <Card variant="default" padding="none" className="overflow-hidden">
                                 {/* Table Header */}
                                 <div className="grid grid-cols-12 gap-4 px-6 py-4 bg-surface-50 border-b border-neutral-100 text-sm font-medium text-neutral-500">
-                                    <div className="col-span-5">Interview</div>
+                                    <div className="col-span-4">Interview</div>
+                                    <div className="col-span-2">Level</div>
                                     <div className="col-span-2">Date</div>
                                     <div className="col-span-2">Status</div>
                                     <div className="col-span-2">Score</div>
-                                    <div className="col-span-1"></div>
                                 </div>
 
                                 {/* Table Body */}
@@ -362,10 +443,11 @@ export default function DashboardPage() {
                                     {interviews.map((interview) => (
                                         <div
                                             key={interview.id}
-                                            className="grid grid-cols-12 gap-4 px-6 py-4 items-center hover:bg-surface-50 transition-colors group"
+                                            className="grid grid-cols-12 gap-4 px-6 py-4 items-center hover:bg-surface-50 transition-colors group cursor-pointer"
+                                            onClick={() => router.push(interview.status === 'completed' ? `/interview/${interview.id}/results` : `/interview/${interview.id}`)}
                                         >
                                             {/* Interview Info */}
-                                            <div className="col-span-5 flex items-center gap-3">
+                                            <div className="col-span-4 flex items-center gap-3">
                                                 <div className="w-10 h-10 rounded-xl bg-primary-50 text-primary flex items-center justify-center shrink-0">
                                                     <Mic size={18} />
                                                 </div>
@@ -374,9 +456,16 @@ export default function DashboardPage() {
                                                         {interview.job_role}
                                                     </h4>
                                                     <p className="text-sm text-neutral-500 truncate">
-                                                        {interview.job_description?.substring(0, 50) || 'No description'}...
+                                                        {interview.focus_area || 'General Practice'}
                                                     </p>
                                                 </div>
+                                            </div>
+
+                                            {/* Level */}
+                                            <div className="col-span-2">
+                                                <span className="px-2 py-1 rounded-md bg-surface-200 text-xs font-medium text-neutral-600">
+                                                    {interview.experience_level || 'Mid Level'}
+                                                </span>
                                             </div>
 
                                             {/* Date */}
@@ -396,34 +485,17 @@ export default function DashboardPage() {
                                                 {interview.status === 'completed' ? (
                                                     <div className="flex items-center gap-2">
                                                         <StatProgress
-                                                            value={averageScore || 75}
+                                                            value={75} // We need to fetch individual scores properly in a real app, mock for list
                                                             color="success"
                                                             className="w-16"
                                                         />
                                                         <span className="text-sm font-medium text-neutral-700">
-                                                            {averageScore || 75}%
+                                                            View
                                                         </span>
                                                     </div>
                                                 ) : (
                                                     <span className="text-sm text-neutral-400">-</span>
                                                 )}
-                                            </div>
-
-                                            {/* Actions */}
-                                            <div className="col-span-1 flex justify-end">
-                                                {interview.status === 'completed' ? (
-                                                    <Link href={`/interview/${interview.id}/results`}>
-                                                        <Button variant="ghost" size="sm" className="opacity-0 group-hover:opacity-100 transition-opacity">
-                                                            <ExternalLink size={16} />
-                                                        </Button>
-                                                    </Link>
-                                                ) : interview.status === 'in_progress' ? (
-                                                    <Link href={`/interview/${interview.id}`}>
-                                                        <Button variant="soft" size="sm">
-                                                            Continue
-                                                        </Button>
-                                                    </Link>
-                                                ) : null}
                                             </div>
                                         </div>
                                     ))}

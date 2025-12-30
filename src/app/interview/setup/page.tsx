@@ -19,7 +19,9 @@ import {
     Mic,
     Clock,
     Target,
-    BarChart3
+    BarChart3,
+    GraduationCap,
+    Crosshair
 } from 'lucide-react';
 
 export default function InterviewSetupPage() {
@@ -30,6 +32,8 @@ export default function InterviewSetupPage() {
     const [jobDescription, setJobDescription] = useState('');
     const [resumeText, setResumeText] = useState('');
     const [questionCount, setQuestionCount] = useState(8);
+    const [experienceLevel, setExperienceLevel] = useState('Mid Level');
+    const [focusArea, setFocusArea] = useState('Comprehensive');
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [error, setError] = useState('');
     const [uploadedFile, setUploadedFile] = useState<string>('');
@@ -44,13 +48,15 @@ export default function InterviewSetupPage() {
         const file = e.target.files?.[0];
         if (!file) return;
 
+        setError('');
+
         if (file.type === 'text/plain') {
             const text = await file.text();
             setResumeText(text);
             setUploadedFile(file.name);
         } else if (file.type === 'application/pdf') {
-            setResumeText(`[Resume uploaded: ${file.name}]\n\nPlease also paste your resume text below for better results.`);
             setUploadedFile(file.name);
+            setResumeText(`[Resume uploaded: ${file.name}]\n\nPlease also paste your resume text below for better results.`);
         } else {
             setError('Please upload a text or PDF file');
         }
@@ -72,6 +78,9 @@ export default function InterviewSetupPage() {
                     job_description: jobDescription,
                     resume_text: resumeText,
                     question_count: questionCount,
+                    // Store new fields (Make sure to run the migration!)
+                    experience_level: experienceLevel,
+                    focus_area: focusArea,
                     status: 'setup',
                 })
                 .select()
@@ -79,8 +88,8 @@ export default function InterviewSetupPage() {
 
             if (dbError) {
                 console.error('Supabase error:', dbError.message, dbError.code);
-                if (dbError.code === '42P01' || dbError.message?.includes('relation') || dbError.message?.includes('does not exist')) {
-                    setError('Database tables not found. Please run supabase-schema.sql in your Supabase SQL Editor first.');
+                if (dbError.code === '42P01' || dbError.message?.includes('relation') || dbError.message?.includes('does not exist') || dbError.message?.includes('column')) {
+                    setError('Database schema mismatch. Please ask the developer to update the database tables.');
                 } else {
                     setError(`Database error: ${dbError.message || 'Unknown error'}`);
                 }
@@ -108,11 +117,8 @@ export default function InterviewSetupPage() {
         );
     }
 
-    const features = [
-        { icon: <Mic size={18} />, text: 'Voice-based conversation' },
-        { icon: <Target size={18} />, text: 'AI-generated questions' },
-        { icon: <BarChart3 size={18} />, text: 'Detailed analysis report' },
-    ];
+    const experienceLevels = ['Intern', 'Junior', 'Mid Level', 'Senior', 'Staff/Principal'];
+    const focusAreas = ['Comprehensive', 'Coding & Algorithms', 'System Design', 'Behavioral', 'Culture Fit'];
 
     return (
         <div className="min-h-screen bg-surface-50 text-neutral-900 font-sans">
@@ -135,7 +141,7 @@ export default function InterviewSetupPage() {
                 </header>
 
                 {/* Page Content */}
-                <main className="p-8 max-w-4xl">
+                <main className="p-8 max-w-5xl">
                     {/* Page Header */}
                     <div className="mb-8 animate-enter">
                         <div className="flex items-center gap-4 mb-4">
@@ -146,7 +152,7 @@ export default function InterviewSetupPage() {
                                 <h1 className="text-2xl md:text-3xl font-bold font-heading text-neutral-900">
                                     Set Up Your Interview
                                 </h1>
-                                <p className="text-neutral-500">Tell us about the position you&apos;re preparing for</p>
+                                <p className="text-neutral-500">Customize your practice session to your needs</p>
                             </div>
                         </div>
                     </div>
@@ -173,6 +179,40 @@ export default function InterviewSetupPage() {
                                         variant="light"
                                         required
                                     />
+
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        <div className="space-y-2">
+                                            <label className="block text-sm font-medium text-neutral-700">Experience Level</label>
+                                            <div className="relative">
+                                                <select
+                                                    value={experienceLevel}
+                                                    onChange={(e) => setExperienceLevel(e.target.value)}
+                                                    className="w-full pl-10 pr-4 py-2.5 bg-white border border-neutral-200 rounded-xl appearance-none focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary text-neutral-900 font-medium"
+                                                >
+                                                    {experienceLevels.map((level) => (
+                                                        <option key={level} value={level}>{level}</option>
+                                                    ))}
+                                                </select>
+                                                <GraduationCap size={18} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-neutral-400" />
+                                            </div>
+                                        </div>
+
+                                        <div className="space-y-2">
+                                            <label className="block text-sm font-medium text-neutral-700">Focus Area</label>
+                                            <div className="relative">
+                                                <select
+                                                    value={focusArea}
+                                                    onChange={(e) => setFocusArea(e.target.value)}
+                                                    className="w-full pl-10 pr-4 py-2.5 bg-white border border-neutral-200 rounded-xl appearance-none focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary text-neutral-900 font-medium"
+                                                >
+                                                    {focusAreas.map((area) => (
+                                                        <option key={area} value={area}>{area}</option>
+                                                    ))}
+                                                </select>
+                                                <Crosshair size={18} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-neutral-400" />
+                                            </div>
+                                        </div>
+                                    </div>
 
                                     <Textarea
                                         label="Job Description"
@@ -210,12 +250,18 @@ export default function InterviewSetupPage() {
                                                         : 'bg-white text-neutral-400 group-hover:text-primary group-hover:scale-110'
                                                     }
                                                 `}>
-                                                    {uploadedFile ? <CheckCircle size={24} /> : <Upload size={24} />}
+                                                    {uploadedFile ? (
+                                                        <CheckCircle size={24} />
+                                                    ) : (
+                                                        <Upload size={24} />
+                                                    )}
                                                 </div>
                                                 {uploadedFile ? (
                                                     <>
                                                         <span className="text-success font-medium mb-1">{uploadedFile}</span>
-                                                        <span className="text-xs text-success/70">Click to replace</span>
+                                                        <span className="text-xs text-success/70">
+                                                            Click to replace
+                                                        </span>
                                                     </>
                                                 ) : (
                                                     <>
@@ -227,14 +273,16 @@ export default function InterviewSetupPage() {
                                         </div>
                                     </div>
 
-                                    <Textarea
-                                        label="Resume Text (Optional)"
-                                        placeholder="Paste your resume text here for better personalization..."
-                                        value={resumeText}
-                                        onChange={(e) => setResumeText(e.target.value)}
-                                        variant="light"
-                                        className="min-h-[100px]"
-                                    />
+                                    <div className="animate-in fade-in slide-in-from-top-2 duration-300" hidden={!resumeText}>
+                                        <Textarea
+                                            label="Resume Text (Editable)"
+                                            placeholder="Paste your resume text here..."
+                                            value={resumeText}
+                                            onChange={(e) => setResumeText(e.target.value)}
+                                            variant="light"
+                                            className="min-h-[100px] text-sm font-mono"
+                                        />
+                                    </div>
 
                                     {/* Question Count */}
                                     <div className="space-y-3">
@@ -271,22 +319,15 @@ export default function InterviewSetupPage() {
 
                         {/* Sidebar Info */}
                         <div className="space-y-6">
-                            {/* What's Included */}
-                            <Card variant="default" padding="lg">
-                                <h3 className="font-semibold text-neutral-900 mb-4 flex items-center gap-2">
-                                    <Sparkles size={18} className="text-primary" />
-                                    What&apos;s Included
-                                </h3>
-                                <ul className="space-y-3">
-                                    {features.map((feature, index) => (
-                                        <li key={index} className="flex items-center gap-3 text-sm text-neutral-600">
-                                            <div className="w-8 h-8 rounded-lg bg-success-light flex items-center justify-center text-success">
-                                                {feature.icon}
-                                            </div>
-                                            {feature.text}
-                                        </li>
-                                    ))}
-                                </ul>
+                            {/* Tips */}
+                            <Card variant="gradient" padding="lg" className="bg-primary-50 border-primary/10">
+                                <h3 className="font-semibold text-neutral-900 mb-3">💡 Optimization Tip</h3>
+                                <p className="text-sm text-neutral-600 leading-relaxed mb-3">
+                                    Our AI parses your resume to ask personalized questions matching your experience level.
+                                </p>
+                                <p className="text-sm text-neutral-600 leading-relaxed">
+                                    Selecting <span className="font-semibold text-primary">System Design</span> as a focus area will trigger a specialised whiteboard-style interview.
+                                </p>
                             </Card>
 
                             {/* Duration Estimate */}
@@ -308,19 +349,7 @@ export default function InterviewSetupPage() {
                                         <span className="text-neutral-500">10 questions</span>
                                         <span className="font-medium text-neutral-700">~20 mins</span>
                                     </div>
-                                    <div className="flex justify-between text-sm">
-                                        <span className="text-neutral-500">15 questions</span>
-                                        <span className="font-medium text-neutral-700">~30 mins</span>
-                                    </div>
                                 </div>
-                            </Card>
-
-                            {/* Tips */}
-                            <Card variant="gradient" padding="lg" className="bg-primary-50 border-primary/10">
-                                <h3 className="font-semibold text-neutral-900 mb-3">💡 Pro Tip</h3>
-                                <p className="text-sm text-neutral-600 leading-relaxed">
-                                    Include the full job description for more relevant and tailored interview questions. The AI uses this to simulate a real interview experience.
-                                </p>
                             </Card>
                         </div>
                     </div>

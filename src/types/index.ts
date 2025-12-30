@@ -13,6 +13,10 @@ export interface Interview {
     job_role: string;
     job_description: string;
     resume_text: string | null;
+    question_count: number;
+    experience_level?: string;
+    focus_area?: string;
+    transcript?: any;
     status: 'setup' | 'in_progress' | 'completed' | 'cancelled';
     started_at: string | null;
     completed_at: string | null;
